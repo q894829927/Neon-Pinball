@@ -105,3 +105,140 @@
   .mult-lamp.is-final,.marble-hopper.is-feeding,.stake-live strong.is-inserting,
   .mobile-bet-status strong.is-inserting{animation:none}
 }
+
+
+/* v0.6 — polished arcade dashboard, chrome cabinet, and tier-linked winning gates.
+   Preserve the 420x710 collision board and the physical plunger touch target. */
+:root{
+  --arcade-amber:#ffd48a;
+  --arcade-rose:#ff6378;
+  --arcade-ink:#100f23;
+  --arcade-steel:#a8adc8;
+}
+body{
+  background:
+    radial-gradient(ellipse at 48% -15%,#71465a45 0%,transparent 53%),
+    radial-gradient(circle at 0% 63%,#43284e43 0%,transparent 38%),
+    radial-gradient(circle at 100% 75%,#2335544b 0%,transparent 40%),
+    #090c19;
+}
+.shell::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+  opacity:.11;
+  background-image:linear-gradient(#fae1cb20 1px,transparent 1px),
+                   linear-gradient(90deg,#fae1cb20 1px,transparent 1px);
+  background-size:38px 38px;
+  mask-image:linear-gradient(180deg,#000,transparent 85%);
+}
+.brand-icon{border-color:#ffd19491;background:linear-gradient(140deg,#5a3547,#211e37);box-shadow:inset 0 1px #ffe2b35c,0 0 19px #ffb46d30}
+.topbar{border-bottom-color:#b88c6d31}
+.heading .eyebrow{letter-spacing:2.4px;color:#eebc90}
+.heading h1{filter:drop-shadow(0 6px 23px #f3a86819)}
+.heading h1 span{background:linear-gradient(135deg,#fff5c5,#ffd18b 45%,#ffa57b);background-clip:text;-webkit-background-clip:text;color:transparent}
+.heading .tagline{color:#c8bbbf}
+.panel{
+  background:linear-gradient(148deg,#262437f5 0%,#191a2ef9 40%,#121627fc 100%);
+  border-color:#6d556771;
+  box-shadow:inset 0 1px #fff5e71c,inset 0 -1px #0007,0 16px 37px #03050e3d;
+  position:relative;overflow:hidden;
+}
+.panel::before{
+  content:"";position:absolute;top:0;left:15px;right:15px;height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,#ffca9e55,transparent);
+}
+.panel-header{color:#e9b58e;margin-bottom:18px}
+.wallet-value strong{color:#fff5e4;text-shadow:0 4px 16px #efb06829}
+.stake-live{padding:12px 10px;margin-bottom:13px;border:1px solid #ac82654d;border-radius:11px;
+  background:linear-gradient(100deg,#241c33,#302331 82%,#32232b);
+  align-items:center;color:#e6c9a8}
+.stake-live strong{color:#ffda91;text-shadow:0 0 16px #efad5740}
+.bet-choice{
+  border-radius:10px;border-color:#887179;
+  background:linear-gradient(180deg,#393346,#231f31);
+  color:#fff1dc;box-shadow:inset 0 1px #ffffff1f,0 3px 0 #171627;
+  transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease;
+}
+.bet-choice:not(:disabled):hover{border-color:#f5ca8a;box-shadow:inset 0 1px #fff5c544,0 4px 18px #f6ad6630;transform:translateY(-2px)}
+.bet-choice:not(:disabled):active{transform:translateY(2px);box-shadow:inset 0 1px #fff5c544}
+.mult-display{margin:4px 0 12px}
+.mult-display strong{font-variant-numeric:tabular-nums;letter-spacing:-4px;
+  background:linear-gradient(180deg,#fff5d5,#ffcb83 56%,#ff9767);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:none;filter:drop-shadow(0 0 10px #ffa87854)}
+.rate-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.rate-strip span{
+  display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;
+  padding:8px 2px 7px;border:1px solid #5e53676e;border-radius:7px;
+  background:linear-gradient(#292338,#201d2f);color:#bab0bd;
+  font-size:11px;font-weight:800;line-height:1.1;text-decoration:none!important;
+}
+.rate-strip span small{font-size:8px;font-weight:500;color:#9c9aa9;white-space:nowrap}
+.rate-strip span.active{
+  color:#2b1e2b;border-color:#ffd798;
+  background:linear-gradient(145deg,#fff5c8,#ffcc79 74%,#e89362);
+  box-shadow:0 0 16px #ffbd675c;
+}
+.rate-strip span.active small{color:#6b413f}
+.chance-info{
+  margin-top:15px;padding:13px 12px 11px;
+  border:1px solid #c0848263;border-radius:11px;
+  background:linear-gradient(150deg,#30213a,#201b31 70%);
+}
+.chance-header{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#c9bdc6;font-size:11px}
+.chance-header strong{font-size:25px;color:#ff9a96;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.chance-header small{font-size:10px;color:#a9a1af}
+.slot-preview{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:3px;margin-top:13px}
+.slot-preview i{
+  height:18px;min-width:0;border:1px solid #57627c;border-radius:4px 4px 6px 6px;
+  background:linear-gradient(180deg,#303852,#19223a 70%);
+  box-shadow:inset 0 1px #8795b41e;
+}
+.slot-preview i.is-winning{
+  background:linear-gradient(180deg,#ffb19b,#ff526c 68%,#8c2845);
+  border-color:#ffd3b5;box-shadow:0 0 12px #ff536b99,inset 0 1px #fff7c983;
+}
+.chance-caption{font-size:9px;color:#e0aaab;letter-spacing:.5px;margin-top:10px;text-align:center}
+.payout-row strong{font-variant-numeric:tabular-nums;color:#d3ffd8;text-shadow:0 0 12px #75ffb222}
+.tip-card{background:linear-gradient(120deg,#3026385e,#211a2d5c);border-color:#9c827b8c}
+.cabinet{
+  border-color:#e0a574;
+  background:linear-gradient(104deg,#874c53,#f5bc85 6%,#42314d 12%,#202038 50%,#44304b 88%,#efb87b 94%,#864d56);
+  box-shadow:0 0 0 3px #3a2337,0 0 0 5px #f7c58d33,0 0 60px #ffb0781c,15px 28px 47px #010310bd;
+}
+.cabinet::after{
+  content:"";pointer-events:none;position:absolute;left:15px;right:15px;top:10px;height:46px;
+  border-radius:20px;opacity:.35;
+  background:linear-gradient(180deg,#fff0cc32,transparent);
+}
+.cabinet-top{background:linear-gradient(180deg,#392840,#1c1832);
+  border-color:#f2c18b91;box-shadow:inset 0 1px #fbe3bc55,0 3px 11px #02020e82}
+.cabinet-logo{text-align:center;line-height:1.1;text-shadow:0 0 14px #ffb87266}
+.marquee-eyebrow{display:block;margin-bottom:4px;font:600 8px "DM Mono",monospace;
+  letter-spacing:2px;color:#e8b79c;text-shadow:none}
+.cabinet-lights i{background:#fff6b1;box-shadow:0 0 8px #ffdb91,0 0 15px #ffc6716b}
+.machine-lamps{margin-top:9px;border:1px solid #ca9578;background:linear-gradient(180deg,#35253b,#141327 85%);
+  box-shadow:inset 0 2px 9px #090714c9,0 1px #ffddad3f;padding:8px 6px;gap:6px}
+.mult-lamp{
+  flex-direction:column;gap:5px;min-height:55px;
+  border-color:#876c7d;color:#c5acc1;
+  box-shadow:inset 0 1px 4px #040414c9;
+}
+.mult-lamp b{font-size:clamp(16px,1.7vw,21px);font-weight:800;line-height:1}
+.mult-lamp small{font-size:clamp(8px,.85vw,10px);font-weight:600;color:#a797ae;line-height:1;white-space:nowrap}
+.mult-lamp.is-final small,.mult-lamp.is-rolling small{color:#74443f}
+.cabinet-neck{margin:8px 10px 5px}
+.lamp-status{letter-spacing:.2px}
+.marble-hopper{border-color:#f1c392;background:linear-gradient(180deg,#6a4860,#30243f);
+  box-shadow:inset 0 2px #ffffff27,0 3px 7px #030313aa}
+.screen-wrap{border-color:#0f192b;box-shadow:inset 0 0 0 1px #f6cca880,inset 0 0 24px #000,0 0 0 1px #eeb48066}
+.cabinet-bottom{color:#ffdba8}
+.game-message{font-weight:900;letter-spacing:.8px;-webkit-text-stroke:.35px #ffe6b8}
+.power-track{background:#0d1528;border-color:#9f7164}
+.plunger-instruction{border-color:#ffcd885b;background:linear-gradient(90deg,#342a3f77,#2f26337a)}
+.keyboard-note{color:#c4bac5}
+.result-card{border:1px solid #ffdeae7a;box-shadow:0 20px 55px #070712be,0 0 35px #ffb25d2c}
+.result-stamp{letter-spacing:2px}
+@media(prefers-reduced-motion:reduce){
+  .bet-choice{transition:none}
+  .mult-lamp.is-final{animation:none}
+}

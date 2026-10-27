@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  MIN_STAKE,DEPOSIT_STEPS,MULTIPLIERS,SLOT_COUNT,LIT_COUNT,STARTING_MARBLES,
+  MIN_STAKE,DEPOSIT_STEPS,MULTIPLIERS,SLOT_COUNT,WIN_SLOTS_BY_MULTIPLIER,winningSlotCount,STARTING_MARBLES,
   freshSave,restoreSave,createRound,canAfford,settle,settleFunded,depositMarbles,
   refundDeposit,commitShot,canLaunch,redeem,selectTheme,GIFTS
 } from "../public/rules.mjs";
@@ -16,15 +16,15 @@ test("game begins with exactly 100 virtual marbles",()=>{
   assert.equal(save.pendingRound,null);
   assert.deepEqual(MULTIPLIERS,[2,4,6,8,10]);
   assert.equal(SLOT_COUNT,11);
-  assert.equal(LIT_COUNT,3);
+  assert.deepEqual(MULTIPLIERS.map(winningSlotCount),[5,4,3,2,1]);
 });
 
-test("each fresh round chooses a valid multiplier and 3 unique red slots",()=>{
+test("each fresh round chooses valid multiplier-specific red slots",()=>{
   let sample=.001;
   for(let i=0;i<110;i++){
     const round=createRound(()=>{sample=(sample+.173)%1;return sample;});
     assert.ok(MULTIPLIERS.includes(round.multiplier));
-    assert.equal(round.lit.length,3);
+    assert.equal(round.lit.length,winningSlotCount(round.multiplier));
     assert.equal(new Set(round.lit).size,3);
     assert.ok(round.lit.every(x=>x>=0&&x<SLOT_COUNT));
   }
@@ -53,13 +53,13 @@ test("lose: 100 - 10 = 90, with no card",()=>{
 });
 
 test("card threshold depends on ONE shot winning 50+ marbles",()=>{
-  const a=settle(freshSave(),{multiplier:4,lit:[2,4,7]},10,4);
+  const a=settle(freshSave(),{multiplier:4,lit:[2,4,7,9]},10,4);
   assert.equal(a.reward,40);
   assert.equal(a.newCards,0);
-  const b=settle(a.save,{multiplier:2,lit:[2,4,7]},50,4);
+  const b=settle(a.save,{multiplier:2,lit:[1,2,4,7,9]},50,4);
   assert.equal(b.reward,100);
   assert.equal(b.newCards,1);
-  const c=settle(b.save,{multiplier:10,lit:[2,4,7]},50,1);
+  const c=settle(b.save,{multiplier:10,lit:[4]},50,1);
   assert.equal(c.reward,0);
   assert.equal(c.newCards,0);
   assert.equal(c.save.cards,1);
@@ -394,4 +394,77 @@ test("refunding, resetting and next round cancel the old rolling lamp selection"
   assert.ok(occurrences>=3,"new round, refund and reset must clear the animation");
   assert.match(game,/revealState==="rolling"\?"● 抽取中"/);
   assert.match(game,/const visibleMultiplier=displayedMultiplier\(revealState,round\)/);
+});
+
+
+test("higher payout always has fewer independently selected winning slots",()=>{
+  assert.deepEqual(WIN_SLOTS_BY_MULTIPLIER, {2:5,4:4,6:3,8:2,10:1});
+  assert.equal(SLOT_COUNT,11);
+  for(let i=1;i<MULTIPLIERS.length;i++){
+    assert.ok(winningSlotCount(MULTIPLIERS[i])<winningSlotCount(MULTIPLIERS[i-1]));
+  }
+  assert.throws(()=>winningSlotCount(12));
+  for(const multiplier of MULTIPLIERS){
+    let sample=.081;
+    const rng=()=>{sample=(sample+.221)%1;return sample;};
+    for(let i=0;i<20;i++){
+      // Arrange the first RNG draw to pick exactly the intended multiplier.
+      let first=true;
+      const round=createRound(()=>first?(first=false,(MULTIPLIERS.indexOf(multiplier)+.5)/5):rng());
+      assert.equal(round.multiplier,multiplier);
+      assert.equal(round.lit.length,winningSlotCount(multiplier));
+      assert.equal(new Set(round.lit).size,round.lit.length);
+      for(const index of round.lit)assert.ok(index>=0&&index<11);
+      assert.equal(settle(freshSave(),round,10,round.lit[0]).reward,10*multiplier);
+      const miss=Array.from({length:11},(_,x)=>x).find(slot=>!round.lit.includes(slot));
+      assert.equal(settle(freshSave(),round,10,miss).reward,0);
+    }
+  }
+});
+
+test("round validator and pending wagers reject mismatched winning slot count",async()=>{
+  const {isValidRound}=await import("../public/rules.mjs");
+  for(const multiplier of MULTIPLIERS){
+    const target=winningSlotCount(multiplier);
+    const round={multiplier,lit:Array.from({length:target},(_,n)=>n)};
+    assert.equal(isValidRound(round),true);
+    if(target!==3)assert.equal(isValidRound({multiplier,lit:[2,4,7]}),false);
+    assert.equal(isValidRound({...round,lit:[0,0,...round.lit.slice(2)]}),false);
+  }
+  assert.equal(isValidRound({multiplier:12,lit:[1]}),false);
+});
+
+test("older three-red-slot pending wagers migrate without rerolling multiplier or losing marbles",()=>{
+  for(const multiplier of [2,4,6,8,10]){
+    const old={...freshSave(),marbles:72,pendingStake:28,
+      pendingRound:{multiplier,lit:[1,4,7]}};
+    const restored=restoreSave(old);
+    assert.equal(restored.pendingStake,28);
+    assert.equal(restored.marbles,72);
+    assert.equal(restored.pendingRound.multiplier,multiplier);
+    assert.equal(restored.pendingRound.lit.length,winningSlotCount(multiplier));
+    assert.equal(new Set(restored.pendingRound.lit).size,restored.pendingRound.lit.length);
+    assert.equal(canLaunch(restored),true);
+  }
+});
+
+test("UI previews match the real winning slots instead of fixed 3 red slots",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  const mobile=readFileSync(new URL("../public/mobile.css",import.meta.url),"utf8");
+  for(const [multiplier,count] of [[2,5],[4,4],[6,3],[8,2],[10,1]]){
+    assert.match(html,new RegExp('data-mult-lamp="'+multiplier+'"'));
+    assert.ok(html.includes(count+" 个中奖槽"));
+  }
+  assert.match(html,/id="winSlotCount"/);
+  assert.match(html,/id="mobileWinSlots"/);
+  assert.match(html,/id="slotPreview"/);
+  assert.match(game,/visibleRound\.lit\.includes\(index\)/);
+  assert.match(game,/round\.lit\.length\+"\/11"/);
+  assert.match(game,/revealState==="revealed"&&round&&round\.lit\.includes\(i\)/);
+  assert.match(css,/\.slot-preview i\.is-winning/);
+  assert.match(css,/\.mult-lamp b/);
+  assert.match(mobile,/\.mobile-odds/);
 });

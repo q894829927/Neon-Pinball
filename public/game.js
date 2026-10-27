@@ -74,14 +74,14 @@ function paintMultiplierLamps(){
     lamp.classList.toggle("is-final",revealState==="revealed"&&index===litIndex);
   });
   $("lampStatus").textContent=revealState==="rolling"?"倍率抽取中…":
-    revealState==="revealed"?"本局倍率已锁定":"投满5颗开启倍率灯";
+    revealState==="revealed"?"倍率已锁定 · "+round.lit.length+" 个中奖槽":"投满5颗开启倍率灯";
 }
 function finishMultiplierRoll(){
   if(revealState!=="rolling"||!round)return;
   revealState="revealed";
   lampRoll={steps:[],step:-1,nextAt:0};
   refresh();
-  notify("本局倍率 ×"+round.multiplier+"！",1900);
+  notify("本局 ×"+round.multiplier+" 倍 · "+round.lit.length+" 个红灯槽",1900);
   beep(920,.22,"triangle",.06);
 }
 function startMultiplierRoll(){
@@ -162,6 +162,12 @@ function refresh(){
   $("mobileBalance").textContent=save.marbles.toLocaleString("zh-CN");
   const visibleMultiplier=displayedMultiplier(revealState,round);
   const visibleRound=visibleMultiplier===null?null:round;
+  const litCount=visibleRound?visibleRound.lit.length:null;
+  $("winSlotCount").textContent=litCount??"—";
+  $("mobileWinSlots").textContent=litCount??"—";
+  [...$("slotPreview").children].forEach((chip,index)=>{
+    chip.classList.toggle("is-winning",Boolean(visibleRound&&visibleRound.lit.includes(index)));
+  });
   $("mobileMultiplier").textContent=visibleMultiplier??"?";
   $("mobileStake").textContent=stake.toLocaleString("zh-CN");
   $("stakeAmount").textContent=stake.toLocaleString("zh-CN");
@@ -174,7 +180,7 @@ function refresh(){
   $("roundLight").textContent=revealState==="rolling"?"● 抽取中":
     visibleRound?"● 倍率已揭晓":"● 待投珠";
   $("multiplierCaption").textContent=revealState==="rolling"?"顶部跑灯抽取中，请看机台灯光":
-    visibleRound?"本局已锁定倍率，可继续投珠":"累计投满 5 颗后启动顶部倍率灯";
+    visibleRound?"倍率 ×"+visibleMultiplier+" · "+litCount+" 个红灯槽":"累计投满 5 颗后启动顶部倍率灯";
   el.shopCards.textContent=save.cards;
   const names={classic:"经典霓虹",sunset:"落日橘灯光",mint:"薄荷绿灯光",violet:"极光紫灯光"};
   el.themeName.textContent=names[save.theme]||names.classic;
@@ -192,7 +198,7 @@ function refresh(){
   const hint=revealState==="rolling"?"倍率灯跑动中，请看机台顶部…":
     remaining>0?("还差 "+remaining+" 颗开启倍率灯"):
     revealState==="hidden"?"即将开启顶部倍率灯…":
-    ("本局倍率 ×"+visibleMultiplier+" 已锁定，可继续投珠");
+    ("×"+visibleMultiplier+" 倍 · "+litCount+" 个中奖槽，可继续投珠");
   $("betHint").textContent=hint+(remaining>0&&save.marbles<remaining?" · 余额不足可退回投入":"");
   $("mobileBetHint").textContent=hint;
   el.status.textContent=phase==="ready"
@@ -443,14 +449,23 @@ function draw(timestamp){
   bg.addColorStop(0,"#171732");bg.addColorStop(.55,"#0b142c");bg.addColorStop(1,p.floor);
   ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
   ctx.save();if(screenShake>0)ctx.translate(Math.sin(timestamp*.09)*screenShake,0);
-  for(let i=0;i<60;i++)
-    circle(24+(i*97.73)%341,80+(i*136.51)%537,i%5===0?1.2:.6,"#ffffff1b");
-  rounded(16,12,389,65,12,"#281b37","#96716b");
-  rounded(29,22,362,45,8,"#110f27","#b276666b");
-  label("✦   MARBLE LUCK   ✦",210,39,13,p.gold,"center","700");
+  // Crisp glass reflections, dotted backboard and machine serial markings.
+  for(let i=0;i<78;i++)
+    circle(24+(i*97.73)%341,83+(i*136.51)%510,i%5===0?1.15:.55,"#ffffff23");
+  const glass=ctx.createLinearGradient(18,120,370,590);
+  glass.addColorStop(0,"#c0e9ff0c");glass.addColorStop(.19,"#ffffff00");
+  glass.addColorStop(.72,"#ffffff00");glass.addColorStop(1,"#9bd7ff0b");
+  ctx.fillStyle=glass;ctx.fillRect(23,97,347,516);
+  rounded(32,88,327,18,5,"#0e1a30","#997b7655");
+  label("✦  CHROME DROP  •  11 GATES  •  NEON SERIES  ✦",195,101,9,"#b5b6ce","center","700");
+  rounded(16,12,389,65,12,"#2c2039","#e5b67f");
+  rounded(20,16,381,57,10,"#100f26","#c78f70");
+  rounded(29,22,362,45,8,"#171329","#db996f88");
+  line(39,24,380,24,"#ffe5a951",1.3);
+  label("✦   MARBLE LUCK   ✦",210,40,15,p.gold,"center","800");
   label(revealState==="rolling"?"顶部跑灯抽取倍率中…":
-    revealState==="revealed"&&round?"倍率 "+round.multiplier+"× / 中奖红灯 03":
-    "投入 5 颗后抽取倍率与红灯槽",210,57,10,"#be9fa7","center");
+    revealState==="revealed"&&round?"倍率 "+round.multiplier+"× · 红灯中奖槽 "+round.lit.length+"/11":
+    "投入 5 颗后抽取倍率与红灯槽",210,57,11,"#f7d7a7","center");
   line(LEFT,106,LEFT,614,"#e2ac8666",4);
   line(RIGHT,110,RIGHT,615,"#e2ac8666",4);
   ctx.strokeStyle="#ffbc826a";ctx.lineWidth=3;ctx.beginPath();
@@ -474,21 +489,37 @@ function draw(timestamp){
   line(26,588,53,616,p.gold+"88",3);line(366,588,344,617,p.gold+"88",3);
   for(let i=0;i<SLOT_COUNT;i++){
     const x=SLOT_LEFT+i*SLOT_W,lit=Boolean(revealState==="revealed"&&round&&round.lit.includes(i));
-    rounded(x+1,SLOT_TOP+8,SLOT_W-2,77,2,lit?"#813041":"#15243c",
-      lit?"#ff7d8299":"#5f617955");
-    if(lit){ctx.shadowBlur=5;ctx.shadowColor=p.red;
-      circle(x+SLOT_W/2,SLOT_TOP+71,6,p.red);
-      ctx.shadowBlur=0;circle(x+SLOT_W/2,SLOT_TOP+71,2.4,"#fff7f3");}
-    else circle(x+SLOT_W/2,SLOT_TOP+71,3.3,"#536078");
-    label(String(i+1).padStart(2,"0"),x+SLOT_W/2,SLOT_TOP+31,10,
-      lit?"#fff8f4":"#cfdae9","center","700");
-    if(lit)label("WIN",x+SLOT_W/2,SLOT_TOP+49,8,p.gold,"center","700");
+    const center=x+SLOT_W/2;
+    const activeGradient=ctx.createLinearGradient(x,SLOT_TOP+8,x,SLOT_BOTTOM+23);
+    activeGradient.addColorStop(0,lit?"#9f394f":"#18263b");
+    activeGradient.addColorStop(.6,lit?"#49233d":"#10182a");
+    activeGradient.addColorStop(1,lit?"#ae5364":"#212c40");
+    rounded(x+1,SLOT_TOP+8,SLOT_W-2,77,3,activeGradient,lit?"#ff9390":"#57657e76");
+    if(lit){
+      ctx.shadowColor=p.red;ctx.shadowBlur=9;
+      rounded(x+3,SLOT_TOP+11,SLOT_W-6,4,2,"#ffab9c");
+      ctx.shadowBlur=0;
+      circle(center,SLOT_TOP+72,7,p.red);
+      circle(center,SLOT_TOP+72,3,"#fff7f3");
+    }else{
+      rounded(x+3,SLOT_TOP+11,SLOT_W-6,3,1,"#67788b44");
+      circle(center,SLOT_TOP+72,3.4,"#596b86");
+    }
+    label(String(i+1).padStart(2,"0"),center,SLOT_TOP+34,11,
+      lit?"#fff8f4":"#dde4f0","center","700");
+    if(lit)label("WIN",center,SLOT_TOP+53,9,"#ffd6a8","center","800");
   }
   for(let i=1;i<SLOT_COUNT;i++){
     const x=SLOT_LEFT+i*SLOT_W;line(x,SLOT_TOP+2,x,SLOT_BOTTOM+24,"#cfadad",2);
     circle(x,SLOT_TOP,4.2,"#e0d0c4");
   }
-  line(SLOT_LEFT,SLOT_TOP,SLOT_RIGHT,SLOT_TOP,"#ffbf8599",2);
+  line(SLOT_LEFT,SLOT_TOP,SLOT_RIGHT,SLOT_TOP,"#ffbf8599",2.4);
+  for(let j=0;j<11;j++){
+    if(j===0||j===10){
+      circle(LEFT+4,SLOT_TOP+34+(j===0?0:25),2,"#fff3c4");
+      circle(RIGHT-4,SLOT_TOP+34+(j===0?0:25),2,"#fff3c4");
+    }
+  }
   drawPlunger(p);
   if(phase==="ready"){marble(LANE,606+Math.sin(timestamp/310)*1.1,R,p);
     label("READY",391,581,8,p.gold,"center","700");}
