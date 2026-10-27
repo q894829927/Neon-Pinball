@@ -5,7 +5,13 @@ export const DEPOSIT_STEPS = Object.freeze([1, 5, 10]);
 export const MAX_STAKE = 1_000_000; // guard unsafe integer growth in local saves
 export const MULTIPLIERS = Object.freeze([2, 4, 6, 8, 10]);
 export const SLOT_COUNT = 11;
-export const LIT_COUNT = 3;
+// High multipliers have fewer winning mouths. All 11 slots are equally wide,
+// but actual landing probabilities are determined by physical collisions.
+export const WIN_SLOTS_BY_MULTIPLIER = Object.freeze({2:5,4:4,6:3,8:2,10:1});
+export function winningSlotCount(multiplier) {
+  if (!Object.hasOwn(WIN_SLOTS_BY_MULTIPLIER, multiplier)) throw new Error("Invalid multiplier");
+  return WIN_SLOTS_BY_MULTIPLIER[multiplier];
+}
 export const STORAGE_KEY = "neon-pinball-arcade-v1";
 
 export const GIFTS = Object.freeze([
@@ -31,9 +37,8 @@ export function restoreSave(candidate) {
     : [];
   const theme = candidate.theme === "classic" || redeemed.includes(candidate.theme) ? candidate.theme : "classic";
   const pendingStake = int(candidate.pendingStake, MAX_STAKE);
-  const pendingRound = pendingStake >= MIN_STAKE && isValidRound(candidate.pendingRound)
-    ? { multiplier: candidate.pendingRound.multiplier, lit: [...candidate.pendingRound.lit] }
-    : null;
+  const pendingRound = pendingStake >= MIN_STAKE
+    ? normalizePendingRound(candidate.pendingRound) : null;
   return {
     marbles: int(candidate.marbles), cards: int(candidate.cards, 9999),
     rounds: int(candidate.rounds), wins: int(candidate.wins),
@@ -51,6 +56,28 @@ function rollIndex(length, rng) {
   return Math.floor(value * length);
 }
 
+/** Pending rounds saved under the old all-3-slots rule must not lose their bet.
+ * Keep previously lit positions first; resize to the new multiplier tier.
+ * No new multiplier is drawn on migration.
+ */
+function normalizePendingRound(candidate) {
+  if (!candidate || !MULTIPLIERS.includes(candidate.multiplier) ||
+      !Array.isArray(candidate.lit)) return null;
+  const lit = candidate.lit;
+  if (lit.length<1 || lit.length>SLOT_COUNT ||
+      !lit.every(i=>Number.isInteger(i)&&i>=0&&i<SLOT_COUNT) ||
+      new Set(lit).size!==lit.length) return null;
+  const desired = winningSlotCount(candidate.multiplier);
+  const chosen = [...lit].slice(0, desired);
+  // Fill from alternating centre/outside slots to avoid clustering.
+  const fillOrder = [5,3,7,1,9,4,6,2,8,0,10];
+  for (const index of fillOrder) {
+    if(chosen.length>=desired)break;
+    if(!chosen.includes(index))chosen.push(index);
+  }
+  return {multiplier:candidate.multiplier,lit:chosen.sort((a,b)=>a-b)};
+}
+
 export function createRound(rng = Math.random) {
   const multiplier = MULTIPLIERS[rollIndex(MULTIPLIERS.length, rng)];
   const indices = Array.from({ length: SLOT_COUNT }, (_, i) => i);
@@ -58,14 +85,14 @@ export function createRound(rng = Math.random) {
     const j = rollIndex(i + 1, rng);
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
-  return { multiplier, lit: indices.slice(0, LIT_COUNT).sort((a, b) => a - b) };
+  return { multiplier, lit: indices.slice(0, winningSlotCount(multiplier)).sort((a, b) => a - b) };
 }
 
 export function isValidRound(round) {
   return Boolean(round && MULTIPLIERS.includes(round.multiplier) &&
-    Array.isArray(round.lit) && round.lit.length === LIT_COUNT &&
+    Array.isArray(round.lit) && round.lit.length === winningSlotCount(round.multiplier) &&
     round.lit.every(n => Number.isInteger(n) && n >= 0 && n < SLOT_COUNT) &&
-    new Set(round.lit).size === LIT_COUNT);
+    new Set(round.lit).size === winningSlotCount(round.multiplier));
 }
 
 export function validBet(value) {
@@ -79,7 +106,7 @@ export function canLaunch(save) {
 }
 
 /** Transfer virtual marbles from the bank to the current unreleased shot.
- * The random multiplier and three red slots are revealed ONCE, at the fifth marble.
+ * The random multiplier and tier-dependent red slots are revealed ONCE, at the fifth marble.
  */
 export function depositMarbles(save, amount, rng = Math.random) {
   if (!Number.isSafeInteger(amount) || amount <= 0 ||
