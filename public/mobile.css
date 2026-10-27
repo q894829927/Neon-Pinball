@@ -1,0 +1,172 @@
+/* Responsive game shell v0.3: phone-first controls, safe areas, and a large plunger hit target. */
+/* Keep the 420x710 logical playfield fixed; only the visual viewport scales. */
+.mobile-playbar{display:none}
+.plunger-grip{
+  position:absolute;bottom:0;right:0;
+  width:clamp(44px,12%,64px);height:18%;
+  z-index:3;cursor:ns-resize;touch-action:none;
+  -webkit-user-select:none;user-select:none;
+  background:transparent;
+}
+.screen-wrap{isolation:isolate}
+.screen-wrap .shoot-overlay{z-index:5}
+.screen-wrap canvas{display:block;max-width:100%;object-fit:contain}
+body{min-width:0}
+.shell,.machine-layout,.machine-section,.side,.panel{min-width:0}
+.modal{box-sizing:border-box}
+button{min-height:36px}
+.bet-choice{touch-action:manipulation}
+
+@media (max-width:820px), (pointer:coarse) and (max-height:600px) {
+  html{overflow-x:clip}
+  body{overflow-x:clip;overscroll-behavior-x:none}
+  .shell{
+    width:100%;max-width:780px;
+    padding:
+      max(8px,env(safe-area-inset-top))
+      max(9px,env(safe-area-inset-right))
+      max(18px,env(safe-area-inset-bottom))
+      max(9px,env(safe-area-inset-left));
+  }
+  .topbar{height:46px;gap:10px}
+  .brand{min-width:0;gap:8px}
+  .brand-icon{width:34px;height:34px;font-size:23px;flex-shrink:0}
+  .brand-words{font-size:16px;letter-spacing:1.4px}
+  .brand-words small{font-size:8px;letter-spacing:1px;margin-top:5px}
+  .header-actions{gap:7px}
+  .header-actions .icon-button{width:39px;height:39px;min-width:39px}
+  .mode-pill{display:none}
+  .overline{display:none}
+  .heading{margin:10px auto 11px;display:block;max-width:515px}
+  .heading .eyebrow{font-size:8px;letter-spacing:1.4px;margin:0 0 3px}
+  .heading h1{font-size:clamp(27px,7vw,37px);letter-spacing:0}
+  .heading h1 b{font-size:19px;margin-left:8px}
+  .heading .tagline{display:none}
+  .heading .edition{display:none}
+  .machine-layout{display:flex;flex-direction:column;align-items:stretch;gap:13px;width:100%;max-width:600px;margin:auto}
+  .machine-section{order:0;width:100%;max-width:100%;margin:0 auto}
+  .mobile-playbar{
+    display:block;max-width:515px;margin:0 auto 10px;
+    background:#181b30;border:1px solid #655063b8;
+    border-radius:12px;padding:9px 10px 10px;
+    box-shadow:0 4px 16px #04051142;
+  }
+  .mobile-stats{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,.85fr);gap:5px}
+  .mobile-stat{min-width:0;display:flex;flex-direction:column;gap:3px;padding:0 6px;border-right:1px solid #ffffff1a}
+  .mobile-stat:first-child{padding-left:2px}
+  .mobile-stat:last-child{border-right:0}
+  .mobile-stat>span{font-size:10px;color:#b8b3c2;white-space:nowrap}
+  .mobile-stat strong{
+    color:#f8e4cb;font-size:clamp(17px,5.3vw,25px);font-weight:700;
+    line-height:1.2;font-variant-numeric:tabular-nums;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .mobile-stat strong.mobile-mult{color:#ffcf8d}
+  .mini-coin{color:#ffcd7e;font-style:normal;font-size:.63em;vertical-align:2px}
+  .mobile-bets{display:grid;grid-template-columns:minmax(35px,.6fr) repeat(3,minmax(0,1fr));gap:7px;margin-top:9px;align-items:stretch}
+  .mobile-bet-label{font-size:11px;font-weight:600;align-self:center;white-space:nowrap;color:#dfc6b1}
+  .mobile-bets .bet-choice{
+    display:flex;align-items:center;justify-content:center;
+    min-width:0;min-height:43px;padding:7px 2px;
+    font-size:clamp(12px,3.6vw,16px);line-height:1.1;white-space:nowrap;
+    border-radius:9px;
+  }
+  /* The upper game/slot region remains completely visible. The entire cabinet
+     shrinks on short displays instead of cropping the bottom plunger. */
+  .cabinet{
+    box-sizing:border-box;width:100%;min-width:0;
+    max-width:min(100%,clamp(270px,calc((100dvh - 214px) * .73),460px));
+    margin:0 auto;padding:7px 8px 6px;
+    border-radius:25px;
+  }
+  .cabinet:before{inset:4px;border-radius:20px}
+  .cabinet-top{height:38px;border-radius:16px 16px 7px 7px}
+  .cabinet-logo{font-size:clamp(11px,3.8vw,17px);letter-spacing:.4px}
+  .cabinet-neck{margin:4px 7px;gap:4px;font-size:7px}
+  .cabinet-neck span{white-space:nowrap}
+  .cabinet-lights{gap:3px}
+  .cabinet-lights i{width:5px;height:5px}
+  .screen-wrap{border-width:2px;border-radius:9px}
+  /* The board can be scrolled vertically from anywhere except the grip,
+     which captures touch movement for true physical pull strength. */
+  .screen-wrap canvas{width:100%;height:auto;aspect-ratio:420/710;touch-action:pan-y}
+  .plunger-grip{width:clamp(44px,14%,58px);height:19%}
+  .cabinet-bottom{padding:5px 10px 0;font-size:7px}
+  .launch-console{margin:8px auto 0;gap:6px;max-width:460px}
+  .charge-head{font-size:11px;margin-bottom:5px}
+  .power-track{height:10px}
+  .power-label{font-size:8px}
+  .plunger-instruction{margin:0;padding:6px 8px;font-size:11px;line-height:1.35}
+  .plunger-instruction span{font-size:18px}
+  .keyboard-note{margin:8px auto 0;padding:0 4px;max-width:460px;line-height:1.6;font-size:10px}
+  .side-left,.side-right{order:1;width:100%;padding-top:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .side-right{order:2}
+  .side-left .tip-card,.side-right .rules-summary{grid-column:1/-1}
+  .side-left .wallet-panel .field-head,
+  .side-left .wallet-panel .bet-grid,
+  .side-left .wallet-panel #betHint{display:none}
+  .panel{padding:12px}
+  .panel-header{margin-bottom:12px;font-size:9px}
+  .wallet-value{margin-bottom:7px}
+  .wallet-value strong{font-size:clamp(27px,7vw,37px)}
+  .wallet-value .coin{font-size:15px}
+  .meter-row{font-size:10px;flex-wrap:wrap}
+  .mult-display{margin:4px 0 9px}
+  .mult-display strong{font-size:clamp(46px,12vw,66px)}
+  .rate-strip{font-size:9px;gap:2px}
+  .payout-row{font-size:10px}
+  .payout-row strong{font-size:18px}
+  .reward-top{gap:8px}
+  .ticket-icon{width:46px;height:60px}
+  .reward-top strong{font-size:29px}
+  .promo{margin:12px 0}
+  .promo strong{font-size:11px}
+  .stat strong{font-size:18px}
+  .rules-summary{height:auto}
+  .rule-step p{margin-bottom:10px}
+  footer{padding:18px 0 max(8px,env(safe-area-inset-bottom));font-size:9px;text-align:center;line-height:1.8}
+  /* Dialog never leaves its buttons below the bottom home-gesture area. */
+  .modal{
+    width:min(calc(100vw - 24px),510px);
+    max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding:18px 16px max(18px,env(safe-area-inset-bottom));
+    overflow-y:auto;overscroll-behavior:contain;
+  }
+  .modal h2{font-size:23px;margin:10px 0 12px}
+  .modal .gift-item{min-width:0}
+  .modal .gift-copy{min-width:0}
+  .modal .gift-cta{white-space:nowrap}
+  .result-card{padding:14px 10px 13px}
+  .result-card h2{font-size:clamp(17px,4.7vw,24px);margin:10px 0 4px}
+  .result-number{font-size:clamp(28px,9vw,48px)}
+  .result-card p{font-size:11px}
+  .result-card .primary{margin:10px auto 0;min-width:0;width:min(100%,210px);padding:10px}
+  .result-card .card-earned{margin:7px auto;padding:7px}
+  .result-stamp{font-size:9px}
+  .shoot-overlay{padding:10px}
+}
+/* Narrow / 320px phones: keep hit targets and text legible, no two tiny columns. */
+@media (max-width:370px) {
+  .shell{padding-left:max(6px,env(safe-area-inset-left));padding-right:max(6px,env(safe-area-inset-right))}
+  .mobile-playbar{padding:8px 7px}
+  .mobile-stat{padding:0 3px}
+  .mobile-stat>span{font-size:9px}
+  .mobile-stat strong{font-size:17px}
+  .mobile-bets{gap:4px;grid-template-columns:32px repeat(3,minmax(0,1fr))}
+  .mobile-bets .bet-choice{font-size:12px;min-height:44px}
+  .side-left,.side-right{grid-template-columns:1fr}
+  .panel{padding:14px}
+  .cabinet{padding:6px}
+  .cabinet-top{height:34px}
+  .cabinet-logo{font-size:12px}
+  .cabinet-neck{font-size:6px}
+}
+/* Very short landscape phones get a readable centered machine with scrolling,
+   rather than an unusably wide board or hidden controls. */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px) {
+  .heading{display:none}
+  .machine-layout{max-width:600px}
+  .mobile-playbar{max-width:540px;margin-top:8px}
+  .cabinet{max-width:min(100%,clamp(270px,calc(100dvh * .78),390px))}
+  .side-left,.side-right{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

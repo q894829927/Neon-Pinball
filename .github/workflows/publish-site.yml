@@ -36,6 +36,7 @@ jobs:
           test -s dist/rules.mjs
           test -s dist/plunger.mjs
           test -s dist/style.css
+          test -s dist/mobile.css
           grep -Fq '/games/pinball/' dist/index.html
           ! grep -q 'VITE_SERVER_URL' dist/game.js
           python3 -m http.server 8765 --directory dist --bind 127.0.0.1 >/tmp/pinball-http.log 2>&1 &
@@ -52,7 +53,7 @@ jobs:
                   sleep(.2)
           else:
               raise SystemExit("Static preview failed")
-          for path in ("game.js","rules.mjs","plunger.mjs","style.css"):
+          for path in ("game.js","rules.mjs","plunger.mjs","style.css","mobile.css"):
               with urlopen("http://127.0.0.1:8765/"+path) as r:
                   assert r.status==200
           PY

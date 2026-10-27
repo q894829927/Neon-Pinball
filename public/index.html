@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0b0c1d">
   <meta name="description" content="一枚钢珠，一次弹射。蓄力、碰撞、落槽，体验电玩城倍率弹珠机。">
   <title>星运弹珠局 · Neon Pinball</title>
   <link rel="stylesheet" href="/games/pinball/style.css">
+  <link rel="stylesheet" href="/games/pinball/mobile.css">
   <script type="module" src="/games/pinball/game.js"></script>
 </head>
 <body>
@@ -28,7 +30,7 @@
         <h1>星运<span>弹珠局</span><b>✳</b></h1>
         <p class="tagline">蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运。</p>
       </div>
-      <div class="edition"><span>ARCADE</span><b>V 0.2.0</b></div>
+      <div class="edition"><span>ARCADE</span><b>V 0.3.0</b></div>
     </section>
     <main class="machine-layout">
       <section class="side side-left" aria-label="投入和账户">
@@ -59,6 +61,19 @@
       </section>
 
       <section class="machine-section" aria-label="弹珠台">
+        <div class="mobile-playbar" aria-label="移动端快速操作">
+          <div class="mobile-stats">
+            <div class="mobile-stat"><span>弹珠余额</span><strong><i class="mini-coin" aria-hidden="true">●</i> <span id="mobileBalance">100</span></strong></div>
+            <div class="mobile-stat"><span>本局倍率</span><strong class="mobile-mult">×<span id="mobileMultiplier">6</span></strong></div>
+            <div class="mobile-stat"><span>奖励卡</span><strong>✦ <span id="mobileCards">0</span></strong></div>
+          </div>
+          <div class="mobile-bets" role="group" aria-label="移动端选择本局投入">
+            <span class="mobile-bet-label">投入</span>
+            <button type="button" class="bet-choice selected" data-bet="10" aria-pressed="true">10 颗</button>
+            <button type="button" class="bet-choice" data-bet="20" aria-pressed="false">20 颗</button>
+            <button type="button" class="bet-choice" data-bet="50" aria-pressed="false">50 颗</button>
+          </div>
+        </div>
         <div class="cabinet">
           <div class="cabinet-top">
             <div class="cabinet-lights"><i></i><i></i><i></i></div>
@@ -67,7 +82,8 @@
           </div>
           <div class="cabinet-neck"><span>HIGH VOLTAGE</span><span>★★★</span><span>MARBLE DROP</span></div>
           <div class="screen-wrap">
-            <canvas id="board" width="420" height="710" role="img" aria-label="带金属钉、右侧机械下拉拉杆及十一条落珠槽的电玩城弹珠机。抓住右下方的金色拉杆向下拖动，松开发射。"></canvas>
+            <canvas id="board" width="420" height="710" role="img" aria-label="弹珠机游戏画面：右侧发射轨道、金属钉和 11 个奖励槽。"></canvas>
+            <div id="plungerGrip" class="plunger-grip" aria-label="右下角机械拉杆触控区域" aria-hidden="true"></div>
             <div class="game-message" id="floatMessage" aria-live="polite"></div>
             <div id="shootOverlay" class="shoot-overlay" hidden>
               <div class="result-card">
@@ -89,7 +105,7 @@
           </div>
           <p class="plunger-instruction"><span aria-hidden="true">↧</span> 拖动机台右下角的金色拉杆，松手发射</p>
         </div>
-        <div class="keyboard-note">鼠标 / 触屏：<b>向下拉动右侧机械拉杆</b> · 键盘备用：按住 <kbd>SPACE</kbd> 后松开</div>
+        <div class="keyboard-note">手机用手指沿右下角的金色拉杆向下拖动后松开 · 电脑可按住 <kbd>SPACE</kbd> 蓄力</div>
       </section>
 
       <aside class="side side-right" aria-label="奖品和记录">
@@ -113,7 +129,7 @@
         <div class="rules-summary">
           <div class="rules-badge">HOW TO PLAY</div>
           <div class="rule-step"><span>01</span><p>投入虚拟弹珠</p></div>
-          <div class="rule-step"><span>02</span><p>按住蓄力，松开发射</p></div>
+          <div class="rule-step"><span>02</span><p>下拉右侧机械拉杆，松开发射</p></div>
           <div class="rule-step"><span>03</span><p>撞击钉阵，落入红灯槽得奖</p></div>
           <button type="button" class="text-button" id="howToBtn">查看完整规则 ↗</button>
         </div>

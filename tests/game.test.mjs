@@ -134,9 +134,47 @@ test("DPR canvas and physical pointer drag are wired without an HTML launch butt
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(game,/window\.devicePixelRatio/);
   assert.match(game,/ResizeObserver\(resizeCanvas\)/);
-  assert.match(game,/canvas\.setPointerCapture\(event\.pointerId\)/);
+  assert.match(game,/event\.currentTarget\.setPointerCapture\(event\.pointerId\)/);
   assert.match(game,/charge=pullStrength\(dragStartY,pointerPosition\(event\)\.y\)/);
   assert.match(game,/drawPlunger\(p\)/);
   assert.doesNotMatch(game,/el\.shoot|launchBtn/);
   assert.doesNotMatch(html,/id="launchBtn"/);
+});
+
+
+test("mobile first-play layout includes visible stats and stake controls before table",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const mobile=readFileSync(new URL("../public/mobile.css",import.meta.url),"utf8");
+  const script=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  assert.match(html,/\/games\/pinball\/mobile\.css/);
+  const bar=html.indexOf('class="mobile-playbar"');
+  const cabinet=html.indexOf('class="cabinet"');
+  assert.ok(bar>=0&&bar<cabinet,"Mobile betting and balance are above board");
+  for(const id of ["mobileBalance","mobileMultiplier","mobileCards","plungerGrip"]){
+    assert.match(html,new RegExp('id="'+id+'"'));
+  }
+  for(const bet of [10,20,50]){
+    assert.equal((html.match(new RegExp('data-bet="'+bet+'"',"g"))||[]).length,2);
+  }
+  assert.match(script,/"mobileBalance"/);
+  assert.match(script,/"mobileMultiplier"/);
+  assert.match(script,/"mobileCards"/);
+  assert.match(script,/for\(const surface of \[canvas,plungerGrip\]\)/);
+  assert.match(mobile,/min-height:43px/);
+  assert.match(mobile,/width:clamp\(44px/);
+});
+
+test("portrait, very narrow and short landscape screens do not crop the board",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const css=readFileSync(new URL("../public/mobile.css",import.meta.url),"utf8");
+  assert.match(css,/@media \(max-width:820px\)/);
+  assert.match(css,/@media \(max-width:370px\)/);
+  assert.match(css,/\(orientation:landscape\) and \(max-height:600px\)/);
+  assert.match(css,/calc\(\(100dvh - 214px\)/);
+  assert.match(css,/env\(safe-area-inset-bottom\)/);
+  assert.match(css,/\.screen-wrap canvas\{width:100%;height:auto;aspect-ratio:420\/710;touch-action:pan-y\}/);
+  assert.match(css,/\.plunger-grip\{width:clamp\(44px,14%,58px\);height:19%\}/);
+  assert.match(css,/\.screen-wrap \.shoot-overlay\{z-index:5\}/);
+  assert.match(css,/\.modal\{/);
 });
