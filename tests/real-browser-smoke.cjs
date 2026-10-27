@@ -72,7 +72,7 @@ const {chromium}=require("playwright");
           "Desktop cabinet must remain readable");
       }
       assert.ok(evidence.canvasWidth>0&&evidence.canvasHeight>0);
-      const button=profile.name==="desktop"||profile.name==="landscape"
+      const button=profile.name.startsWith("desktop")||profile.name==="landscape"
         ?page.locator('.side-left [data-add="1"]')
         :page.locator('.mobile-playbar [data-add="1"]');
       await button.click({timeout:6000});
