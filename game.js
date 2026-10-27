@@ -9,6 +9,7 @@ const SLOT_W=(SLOT_RIGHT-SLOT_LEFT)/SLOT_COUNT;
 const R=7.1,GRAVITY=1060,STEP=1/180;
 const $=id=>document.getElementById(id);
 const canvas=$("board"),ctx=canvas.getContext("2d",{alpha:false});
+const plungerGrip=$("plungerGrip");
 const el={balance:$("balance"),rounds:$("rounds"),wins:$("wins"),cards:$("cards"),
   multiplier:$("multiplier"),payout:$("possiblePayout"),best:$("best"),
   earned:$("earned"),themeName:$("themeName"),status:$("launchStatus"),
@@ -60,6 +61,9 @@ function notify(msg,d=1400){
 }
 function refresh(){
   el.balance.textContent=save.marbles.toLocaleString("zh-CN");
+  $("mobileBalance").textContent=save.marbles.toLocaleString("zh-CN");
+  $("mobileMultiplier").textContent=round.multiplier;
+  $("mobileCards").textContent=save.cards;
   el.cards.textContent=save.cards;el.rounds.textContent=save.rounds;
   el.wins.textContent=save.wins;el.best.textContent=save.best;
   el.earned.textContent=save.earned.toLocaleString("zh-CN");
@@ -386,36 +390,46 @@ document.querySelectorAll("[data-bet]").forEach(btn=>btn.addEventListener("click
   stake=value;refresh();beep(450,.06,"sine",.025);
 }));
 function pointerPosition(event){
+  // Coordinates always track the current canvas bounds, even after orientation
+  // change, browser UI resizing or device pixel ratio changes.
   return boardPoint(event.clientX,event.clientY,canvas.getBoundingClientRect(),W,H);
 }
-canvas.addEventListener("pointerdown",event=>{
-  if(event.button!==0||charging)return;
+function pointerDown(event){
+  if(event.pointerType==="mouse"&&event.button!==0)return;
+  if(charging||phase!=="ready")return;
   const {x,y}=pointerPosition(event);
-  if(!isPlungerHit(x,y))return;
+  // The overlay enlarges the physical hit area of a tiny mobile plunger.
+  // Desktop canvas interactions can still hit the drawn plunger directly.
+  if(event.currentTarget===canvas&&!isPlungerHit(x,y))return;
   if(beginCharge("pointer",y,event.pointerId)){
     event.preventDefault();
-    canvas.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
-});
-canvas.addEventListener("pointermove",event=>{
+}
+function pointerMove(event){
   if(!charging||chargeMode!=="pointer"||dragPointerId!==event.pointerId)return;
   event.preventDefault();
   charge=pullStrength(dragStartY,pointerPosition(event).y);
   updatePower();
-});
-canvas.addEventListener("pointerup",event=>{
+}
+function pointerUp(event){
   if(!charging||chargeMode!=="pointer"||dragPointerId!==event.pointerId)return;
   event.preventDefault();
   charge=pullStrength(dragStartY,pointerPosition(event).y);
   releaseCharge();
-});
-canvas.addEventListener("pointercancel",event=>{
+}
+function pointerCancel(event){
   if(chargeMode==="pointer"&&dragPointerId===event.pointerId)cancelCharge();
-});
-canvas.addEventListener("lostpointercapture",event=>{
-  if(chargeMode==="pointer"&&dragPointerId===event.pointerId)cancelCharge();
-});
-canvas.addEventListener("contextmenu",event=>event.preventDefault());
+}
+for(const surface of [canvas,plungerGrip]){
+  surface.addEventListener("pointerdown",pointerDown);
+  surface.addEventListener("pointermove",pointerMove);
+  surface.addEventListener("pointerup",pointerUp);
+  surface.addEventListener("pointercancel",pointerCancel);
+  surface.addEventListener("lostpointercapture",pointerCancel);
+  surface.addEventListener("contextmenu",event=>event.preventDefault());
+}
+window.addEventListener("orientationchange",cancelCharge);
 window.addEventListener("keydown",event=>{
   if(event.code!=="Space"||event.repeat||document.querySelector("dialog[open]"))return;
   if(event.target instanceof HTMLElement &&
