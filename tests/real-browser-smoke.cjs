@@ -11,7 +11,12 @@ const {chromium}=require("playwright");
       {name:"landscape",width:844,height:390,deviceScaleFactor:2,isMobile:true,hasTouch:true},
     ];
     for(const profile of profiles){
-      const ctx=await browser.newContext(profile);
+      const ctx=await browser.newContext({
+        viewport:{width:profile.width,height:profile.height},
+        deviceScaleFactor:profile.deviceScaleFactor,
+        isMobile:Boolean(profile.isMobile),
+        hasTouch:Boolean(profile.hasTouch),
+      });
       const page=await ctx.newPage();
       const errors=[],failures=[];
       page.on("pageerror",error=>errors.push(error.stack||String(error)));
@@ -44,8 +49,10 @@ const {chromium}=require("playwright");
       assert.deepEqual(failures,[],"Missing static resources ("+profile.name+")");
       assert.ok(evidence.pixels.some(p=>p[0]>2||p[1]>2||p[2]>2),"The game canvas is still black!");
       assert.ok(evidence.canvasWidth>0&&evidence.canvasHeight>0);
-      const button=page.locator('[data-add="1"]').last();
-      await button.click();
+      const button=profile.name==="desktop"||profile.name==="landscape"
+        ?page.locator('.side-left [data-add="1"]')
+        :page.locator('.mobile-playbar [data-add="1"]');
+      await button.click({timeout:6000});
       assert.equal(await page.locator("#mobileStake").textContent(),"1");
       if(profile.name==="desktop"||profile.name==="phone")
         assert.ok(evidence.scrollHeight<=profile.height+2,"Unexpected vertical page scrolling");
