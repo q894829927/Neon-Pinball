@@ -5,6 +5,7 @@ import { MIN_STAKE, MAX_STAKE, MULTIPLIERS, SLOT_COUNT, GIFTS, STORAGE_KEY,
 import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs";
 import {randomLaunch, varyLaunchVelocity, varyPegRebound} from "./physics-variation.mjs";
 import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs";
+import {createPegLayout} from "./board-layout.mjs";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -31,14 +32,8 @@ const palette={
   mint:{gold:"#b9ffe0",red:"#ff6580",sky:"#77fbd0",floor:"#12333d"},
   violet:{gold:"#edbcff",red:"#ff8fbf",sky:"#b6a1ff",floor:"#2e2046"}
 };
-const pegs=[];
-for(let row=0;row<10;row++){
-  for(let i=0;i<8;i++){
-    const x=48+i*39+(row%2)*18.5;
-    if(x<RIGHT-12)pegs.push({x,y:184+row*42,r:5.9});
-  }
-}
-const bumpers=[{x:60,y:348,r:16},{x:324,y:388,r:16},{x:203,y:452,r:14}];
+// Bumpers replace original peg cells in the SAME authoritative layout.
+const {pegs,bumpers}=createPegLayout(RIGHT);
 let save;
 try{save=restoreSave(JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"));}
 catch{save=freshSave();}
