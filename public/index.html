@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0c1d">
+  <meta name="description" content="一枚钢珠，一次弹射。蓄力、碰撞、落槽，体验电玩城倍率弹珠机。">
+  <title>星运弹珠局 · Neon Pinball</title>
+  <link rel="stylesheet" href="/games/pinball/style.css">
+  <script type="module" src="/games/pinball/game.js"></script>
+</head>
+<body>
+  <div class="ambient glow-left"></div><div class="ambient glow-right"></div>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="返回游戏大厅">
+        <span class="brand-icon">✦</span><span class="brand-words">ARCADE<span class="dot">.</span><small>PIXEL STATION / 001</small></span>
+      </a>
+      <div class="header-actions">
+        <span class="mode-pill"><span class="status-led"></span> SINGLE PLAYER</span>
+        <button class="icon-button" id="soundBtn" type="button" aria-label="切换声音" aria-pressed="false" title="音效">♫</button>
+        <button class="icon-button" id="helpBtn" type="button" aria-label="查看规则" title="规则">?</button>
+      </div>
+    </header>
+    <div class="overline"><span class="overline-line"></span> INSERT YOUR LUCK <span class="overline-line"></span></div>
+    <section class="heading" aria-label="游戏名称">
+      <div><p class="eyebrow">NEON MARBLE MACHINE — 01</p>
+        <h1>星运<span>弹珠局</span><b>✳</b></h1>
+        <p class="tagline">蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运。</p>
+      </div>
+      <div class="edition"><span>ARCADE</span><b>V 0.1.0</b></div>
+    </section>
+    <main class="machine-layout">
+      <section class="side side-left" aria-label="投入和账户">
+        <div class="panel wallet-panel">
+          <div class="panel-header"><span>01 / YOUR WALLET</span><span class="small-star">✧</span></div>
+          <div class="label">我的弹珠</div>
+          <div class="wallet-value"><span class="coin">●</span><strong id="balance">100</strong><span class="unit">颗</span></div>
+          <div class="meter-row"><span>累计局数 <b id="rounds">0</b></span><span>中奖次数 <b id="wins">0</b></span></div>
+          <div class="thin-rule"></div>
+          <div class="field-head"><span>本局投入</span><span>SELECT BET</span></div>
+          <div class="bet-grid" role="group" aria-label="选择投入弹珠数">
+            <button type="button" class="bet-choice selected" data-bet="10" aria-pressed="true"><span>●</span>10</button>
+            <button type="button" class="bet-choice" data-bet="20" aria-pressed="false"><span>●</span>20</button>
+            <button type="button" class="bet-choice" data-bet="50" aria-pressed="false"><span>●</span>50</button>
+          </div>
+          <p class="hint" id="betHint">仅在发射时扣除投入；未中奖不返还。</p>
+        </div>
+        <div class="panel multiplier-panel">
+          <div class="panel-header"><span>02 / THIS ROUND</span><span class="live-dot">● LIVE</span></div>
+          <p class="muted-caption">本局随机奖励倍率</p>
+          <div class="mult-display"><span>×</span><strong id="multiplier">6</strong><span class="mult-caption">倍</span></div>
+          <div class="rate-strip"><span>2×</span><span>4×</span><span>6×</span><span>8×</span><span>10×</span></div>
+          <div class="thin-rule"></div>
+          <div class="payout-row"><span>命中红灯可得</span><strong><span id="possiblePayout">60</span><small>颗</small></strong></div>
+          <p class="hint">中奖槽位已经亮红灯。每局重新抽取倍率和亮灯槽。</p>
+        </div>
+        <div class="tip-card"><span class="tip-icon">↗</span><div><strong>力度会影响轨迹</strong><p>蓄力越久，钢珠发射越猛。发射后不可改变方向。</p></div></div>
+      </section>
+
+      <section class="machine-section" aria-label="弹珠台">
+        <div class="cabinet">
+          <div class="cabinet-top">
+            <div class="cabinet-lights"><i></i><i></i><i></i></div>
+            <div class="cabinet-logo">✧ STARFALL <span>PINBALL</span> ✧</div>
+            <div class="cabinet-lights"><i></i><i></i><i></i></div>
+          </div>
+          <div class="cabinet-neck"><span>HIGH VOLTAGE</span><span>★★★</span><span>MARBLE DROP</span></div>
+          <div class="screen-wrap">
+            <canvas id="board" width="420" height="710" role="img" aria-label="带金属钉、右侧发射轨道和十一条落珠槽的电玩城弹珠机"></canvas>
+            <div class="game-message" id="floatMessage" aria-live="polite"></div>
+            <div id="shootOverlay" class="shoot-overlay" hidden>
+              <div class="result-card">
+                <span id="resultStamp" class="result-stamp">NICE SHOT!</span>
+                <h2 id="resultTitle">中奖了！</h2>
+                <div class="result-number" id="resultNumber">+60 <small>颗</small></div>
+                <p id="resultDetail">10 × 6 = 60</p>
+                <div class="card-earned" id="cardEarned" hidden>✦ 获得奖励卡 ×1</div>
+                <button class="primary" id="nextBtn" type="button">下一局 <span>→</span></button>
+              </div>
+            </div>
+          </div>
+          <div class="cabinet-bottom"><span>✦</span><span>GOOD LUCK · GOOD VIBES</span><span>✦</span></div>
+        </div>
+        <div class="launch-console">
+          <div class="charge-info"><div class="charge-head"><span><i class="blink-led"></i> <b id="launchStatus">等待发射</b></span><span id="powerPct">0%</span></div>
+            <div class="power-track"><div id="powerFill"></div><span class="power-lines"></span></div>
+            <div class="power-label"><span>POWER / 蓄力条</span><span>MAX 100%</span></div>
+          </div>
+          <button type="button" id="launchBtn" class="launch-button"><span class="launch-icon">↗</span><span>按住蓄力 · 松开发射</span><span class="launch-button-spark">✧</span></button>
+        </div>
+        <div class="keyboard-note">电脑按住 <kbd>SPACE</kbd> 蓄力并松开 · 手机长按上方发射按钮</div>
+      </section>
+
+      <aside class="side side-right" aria-label="奖品和记录">
+        <div class="panel prize-panel">
+          <div class="panel-header"><span>03 / REWARD VAULT</span><span>✧</span></div>
+          <div class="reward-top">
+            <div class="ticket-icon"><span>★</span></div>
+            <div><div class="label">奖励卡片</div><strong><span id="cards">0</span><small> 张</small></strong></div>
+          </div>
+          <div class="promo"><strong>一次中奖 ≥ 50 颗</strong><span>额外获得奖励卡 × 1</span></div>
+          <button class="outline-button" id="giftBtn" type="button">打开兑换商店 <span>↗</span></button>
+        </div>
+        <div class="panel records-panel">
+          <div class="panel-header"><span>04 / YOUR RECORD</span><span>✦</span></div>
+          <div class="stat"><span>单局最高奖励</span><strong><span id="best">0</span><small>颗</small></strong></div>
+          <div class="thin-rule"></div>
+          <div class="stat"><span>累计赢取</span><strong><span id="earned">0</span><small>颗</small></strong></div>
+          <div class="thin-rule"></div>
+          <div class="stat"><span>当前奖励灯光</span><strong class="theme-name" id="themeName">经典霓虹</strong></div>
+        </div>
+        <div class="rules-summary">
+          <div class="rules-badge">HOW TO PLAY</div>
+          <div class="rule-step"><span>01</span><p>投入虚拟弹珠</p></div>
+          <div class="rule-step"><span>02</span><p>按住蓄力，松开发射</p></div>
+          <div class="rule-step"><span>03</span><p>撞击钉阵，落入红灯槽得奖</p></div>
+          <button type="button" class="text-button" id="howToBtn">查看完整规则 ↗</button>
+        </div>
+      </aside>
+    </main>
+    <footer><span>© STARFALL ARCADE · JUST FOR FUN</span><span>纯虚拟游戏 · 无现金兑换 · 存档仅在本机</span></footer>
+  </div>
+
+  <dialog id="infoDialog" class="modal">
+    <div class="dialog-top"><span>HOW IT WORKS</span><button type="button" class="close-btn" data-close="infoDialog" aria-label="关闭">×</button></div>
+    <h2>弹珠机玩法说明</h2>
+    <div class="rules-content">
+      <p><b>① 投入弹珠</b>：从 10、20、50 颗中选择本局筹码，只有发射后才扣除。</p>
+      <p><b>② 抽取奖励</b>：每局随机产生 2、4、6、8、10 倍倍率，底部 11 个槽位中随机亮起 3 个红灯。</p>
+      <p><b>③ 发射钢珠</b>：长按发射按钮或空格蓄力，松开后从右侧轨道射向顶部。钢珠碰钉反弹，不能在途中调整方向。</p>
+      <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。</p>
+      <p><b>⑤ 奖励卡片</b>：单次中奖奖励 ≥ 50 颗额外获得 1 张卡片，卡片可兑换游戏内虚拟外观。</p>
+      <p><b>⑥ 余额不足</b>：余额小于最小投入 10 颗时，可免费重开一份初始弹珠继续娱乐。卡片和已兑换外观会保留。</p>
+      <p class="rule-warning">仅供单人娱乐。所有弹珠和卡片均为虚拟积分，没有现金价值，不提供真实奖品兑换。</p>
+    </div>
+    <button class="primary modal-close" type="button" data-close="infoDialog">知道了</button>
+  </dialog>
+
+  <dialog id="shopDialog" class="modal">
+    <div class="dialog-top"><span>VIRTUAL GIFT VAULT</span><button type="button" class="close-btn" data-close="shopDialog" aria-label="关闭">×</button></div>
+    <h2>奖励卡兑换</h2>
+    <p class="shop-lead">目前拥有 <strong id="shopCards">0</strong> 张奖励卡。兑换后可永久解锁本浏览器中的灯光主题。</p>
+    <div class="gift-list" id="giftList"></div>
+    <p class="rule-warning">此处为游戏内虚拟礼物。实物奖品、跨设备账号与兑换系统不在首版实现范围内。</p>
+    <button class="outline-button full" id="resetBtn" type="button">清空存档并重新开始</button>
+  </dialog>
+</body>
+</html>

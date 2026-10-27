@@ -1,0 +1,86 @@
+name: Publish managed static site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-managed-static
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify game rules and browser syntax
+        run: |
+          set -euo pipefail
+          node --check public/game.js
+          node --check public/rules.mjs
+          node --test tests/*.test.mjs
+      - name: Stage public static game
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp -a public/. dist/
+          test -s dist/index.html
+          test -s dist/game.js
+          test -s dist/rules.mjs
+          test -s dist/style.css
+          grep -Fq '/games/pinball/' dist/index.html
+          ! grep -q 'VITE_SERVER_URL' dist/game.js
+          python3 -m http.server 8765 --directory dist --bind 127.0.0.1 >/tmp/pinball-http.log 2>&1 &
+          python3 - <<'PY'
+          from urllib.request import urlopen
+          from time import sleep
+          for i in range(20):
+              try:
+                  with urlopen("http://127.0.0.1:8765/") as r:
+                      html=r.read().decode()
+                  assert '星运弹珠局' in html
+                  break
+              except OSError:
+                  sleep(.2)
+          else:
+              raise SystemExit("Static preview failed")
+          for path in ("game.js","rules.mjs","style.css"):
+              with urlopen("http://127.0.0.1:8765/"+path) as r:
+                  assert r.status==200
+          PY
+      - name: Publish current main build to site
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo "main advanced; skip publishing outdated build"
+            exit 0
+          fi
+          target="$RUNNER_TEMP/pinball-site"
+          if git ls-remote --exit-code origin refs/heads/site >/dev/null; then
+            git fetch origin refs/heads/site
+            git worktree add --detach "$target" FETCH_HEAD
+            git -C "$target" switch -C site
+          else
+            git worktree add --detach "$target" HEAD
+            git -C "$target" switch --orphan site
+          fi
+          find "$target" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf -- {} +
+          cp -a dist/. "$target/"
+          printf '%s\n' "$GITHUB_SHA" > "$target/.source-sha"
+          printf 'portal-managed-static-v1\n' > "$target/.site-kind"
+          printf 'pinball\n' > "$target/.site-slug"
+          git -C "$target" config user.name 'github-actions[bot]'
+          git -C "$target" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$target" add -A
+          if ! git -C "$target" diff --cached --quiet; then
+            git -C "$target" commit -m "deploy: pinball from $GITHUB_SHA"
+            git -C "$target" push origin HEAD:refs/heads/site
+          fi
