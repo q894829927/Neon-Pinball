@@ -64,6 +64,26 @@ jobs:
               with urlopen("http://127.0.0.1:8765/"+path) as r:
                   assert r.status==200
           PY
+      - name: Real Chromium smoke (Canvas and mobile)
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright@1.55.1
+          npx playwright install chromium
+          mkdir -p /tmp/pinball-smoke/games
+          ln -s "$GITHUB_WORKSPACE/dist" /tmp/pinball-smoke/games/pinball
+          python3 -m http.server 8766 --directory /tmp/pinball-smoke --bind 127.0.0.1 >/tmp/pinball-smoke-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8766/games/pinball/ >/dev/null; then break; fi
+            sleep .2
+          done
+          node tests/real-browser-smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pinball-browser-screens
+          path: /tmp/pinball-*.png
+          if-no-files-found: ignore
+          retention-days: 2
       - name: Publish current main build to site
         shell: bash
         run: |
