@@ -111,8 +111,8 @@ test("deployment has actual pinball UI rather than old flipper controls",async()
   assert.match(html,/11 个奖励槽|十一条落珠槽/);
   assert.match(html,/下拉拉杆|机械拉杆/);
   assert.doesNotMatch(html,/id="launchBtn"|class="launch-button"|长按发射按钮/);
-  assert.match(js,/bump\(p\.x,p\.y,p\.r\)/);
-  assert.match(js,/finishShot\(ball\.slot\)/);
+  assert.match(js,/stepPhysicalBall\(ball,dt,\{pegs,bumpers\}\)/);
+  assert.match(js,/finishShot\(state\.slot\)/);
   assert.match(js,/if\(settled\|\|!priorSave\)return/);
   assert.doesNotMatch(html,/左右挡板|Paddle/);
 });
@@ -229,11 +229,11 @@ test("collision variation only modifies velocity tangent to a real impact",async
 test("randomness changes real physics but does not preselect payout slots",async()=>{
   const {readFileSync}=await import("node:fs");
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
-  assert.match(game,/shotVelocity=varyLaunchVelocity\(firingVelocity\(power\),randomLaunch\(\)\)/);
-  assert.match(game,/varyPegRebound\(ball\.vx,ball\.vy,nx,ny,-impact\)/);
-  assert.match(game,/withVariation&&-impact>35/);
-  assert.match(game,/finishShot\(ball\.slot\)/);
-  assert.match(game,/for\(let i=1;i<SLOT_COUNT;i\+\+\)bump\(SLOT_LEFT\+i\*SLOT_W,SLOT_TOP-1,4\.2,\.62,false\)/);
+  assert.match(game,/const launchVariation=randomLaunch\(\)/);
+  assert.match(game,/shotVelocity=varyLaunchVelocity\(firingVelocity\(power\),launchVariation\)/);
+  assert.match(game,/createPhysicalBall\(shotVelocity,launchVariation\)/);
+  assert.match(game,/stepPhysicalBall\(ball,dt,\{pegs,bumpers\}\)/);
+  assert.match(game,/finishShot\(state\.slot\)/);
 });
 
 test("five inserted marbles reveal multiplier once, later deposits retain it",()=>{
@@ -503,8 +503,8 @@ test("drawing and collisions use the identical computed grid, without old detach
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const source=readFileSync(new URL("../public/board-layout.mjs",import.meta.url),"utf8");
   assert.match(game,/const \{pegs,bumpers\}=createPegLayout\(RIGHT\)/);
-  assert.match(game,/for\(const p of pegs\)bump\(p\.x,p\.y,p\.r\)/);
-  assert.match(game,/for\(const p of bumpers\)if\(bump\(p\.x,p\.y,p\.r,\.92\)/);
+  assert.match(game,/stepPhysicalBall\(ball,dt,\{pegs,bumpers\}\)/);
+  assert.match(game,/import \{PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall\}/);
   assert.match(game,/for\(const peg of pegs\)/);
   assert.match(game,/for\(const b of bumpers\)/);
   assert.doesNotMatch(game,/x:60,y:348|x:324,y:388|x:203,y:452/);
@@ -518,7 +518,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.7\.3/);
+  assert.match(html,/class="game-version"[^>]*>v0\.8\.0/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -550,11 +550,11 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
-  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.7.3"'),"Versioned import: "+name);
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs"]){
+    assert.ok(js.includes('"./'+name+'?v=0.8.0"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.7.3'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.0'));
   }
 });
 

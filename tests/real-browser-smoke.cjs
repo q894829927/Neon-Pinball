@@ -78,6 +78,21 @@ const {chromium}=require("playwright");
       await button.click({timeout:6000});
       const expectedStake=profile.name.startsWith("desktop")?"17":"1";
       assert.equal(await page.locator("#mobileStake").textContent(),expectedStake);
+      if(profile.name==="desktop"){
+        // A genuine launch must finish by touching the physical bottom floor.
+        // This catches a shot stuck forever in the new guide/collision system.
+        await page.evaluate(()=>document.activeElement?.blur?.());
+        await page.keyboard.down("Space");
+        await page.waitForTimeout(680);
+        await page.keyboard.up("Space");
+        await page.waitForFunction(
+          ()=>!document.querySelector("#shootOverlay").hidden,
+          null,{timeout:28000});
+        const result=await page.locator("#resultDetail").textContent();
+        assert.match(result,/颗|槽/);
+        assert.deepEqual(errors,[],"No runtime errors after physics settlement");
+        await page.screenshot({path:"/tmp/pinball-finished-shot.png",fullPage:true});
+      }
       if(profile.name==="desktop"||profile.name==="phone")
         assert.ok(evidence.scrollHeight<=profile.height+2,"Unexpected vertical page scrolling");
       await ctx.close();

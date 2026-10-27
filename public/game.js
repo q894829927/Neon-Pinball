@@ -1,16 +1,17 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.7.3";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.7.3";
-import {randomLaunch, varyLaunchVelocity, varyPegRebound} from "./physics-variation.mjs?v=0.7.3";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.7.3";
-import {createPegLayout} from "./board-layout.mjs?v=0.7.3";
+} from "./rules.mjs?v=0.8.0";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.8.0";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.8.0";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.8.0";
+import {createPegLayout} from "./board-layout.mjs?v=0.8.0";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.8.0";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
 const SLOT_W=(SLOT_RIGHT-SLOT_LEFT)/SLOT_COUNT;
-const R=7.1,GRAVITY=1060,STEP=1/180;
+const R=PHYSICS.radius,STEP=1/180;
 const $=id=>document.getElementById(id);
 // Some desktop Chromium/Edge GPU drivers can leave 2D Canvas surfaces black
 // even while JavaScript and the UI remain healthy. Prefer a CPU-backed 2D
@@ -217,14 +218,18 @@ function releaseCharge(){
   charge=power;updatePower();
   // Same pull force is not a guaranteed repeat: small independent variations
   // imitate spring friction and launch alignment, without deciding the outcome.
-  shotVelocity=varyLaunchVelocity(firingVelocity(power),randomLaunch());
+  const launchVariation=randomLaunch();
+  shotVelocity=varyLaunchVelocity(firingVelocity(power),launchVariation);
+  // The rail continuously carries the ball to its release tangent.
+  // 'entryVx/entryVy' from the earlier game are no longer imposed as a teleport.
+  const physicalBall=createPhysicalBall(shotVelocity,launchVariation);
   shotStake=stake;
   // Deposit was already charged when marbles were inserted. Commit only
   // clears the pending stake so a reload cannot replay a fired shot.
   save=commitShot(save);
   priorSave={...save,redeemed:[...save.redeemed]};persist();
   phase="shooting";settled=false;elapsed=0;trail=[];particles=[];
-  ball={x:LANE,y:606,vx:0,vy:shotVelocity.laneVy,r:R,mode:"lane",slot:-1,spin:0};
+  ball=physicalBall;
   beep(370+power*210,.23,"sawtooth",.045);notify("GOOD LUCK! ✦",850);refresh();
 }
 function burst(x,y,color,n=8){
@@ -234,60 +239,25 @@ function burst(x,y,color,n=8){
       life:.35+Math.random()*.35,color});
   }
 }
-function bump(cx,cy,r,energy=.76,withVariation=true){
-  if(!ball||ball.mode!=="field")return false;
-  const dx=ball.x-cx,dy=ball.y-cy,range=ball.r+r,dist=Math.hypot(dx,dy);
-  if(dist>=range)return false;
-  const nx=dist>.001?dx/dist:0,ny=dist>.001?dy/dist:-1;
-  ball.x+=nx*(range-dist+.06);ball.y+=ny*(range-dist+.06);
-  const impact=ball.vx*nx+ball.vy*ny;
-  if(impact<0){
-    ball.vx-=(1+energy)*impact*nx;ball.vy-=(1+energy)*impact*ny;
-    ball.vx+=ny*7*Math.sin(ball.spin);
-    if(withVariation&&-impact>35){
-      // Bounded tangential impulse only after a real contact.
-      const rebound=varyPegRebound(ball.vx,ball.vy,nx,ny,-impact);
-      ball.vx=rebound.vx;ball.vy=rebound.vy;
-    }
-    if(-impact>65){beep(320+Math.min(850,-impact*.75),.045,"sine",.014);
-      screenShake=Math.max(screenShake,Math.min(2.8,-impact/210));}
-  }
-  return true;
-}
 function advance(dt){
   if(phase==="shooting"&&ball){
-    elapsed+=dt;ball.spin+=dt*10;
-    if(ball.mode==="lane"){
-      ball.vy+=GRAVITY*.09*dt;ball.y+=ball.vy*dt;
-      if(ball.y<=TOP-15){
-        // The curved upper firing track guides the ball onto the peg field.
-        ball.x=RIGHT-10;ball.y=TOP-15;
-        ball.vx=shotVelocity.entryVx;ball.vy=shotVelocity.entryVy;
-        ball.mode="field";
-        burst(ball.x,ball.y,palette[save.theme].gold,6);
+    elapsed+=dt;
+    const state=stepPhysicalBall(ball,dt,{pegs,bumpers});
+    if(state.entered)burst(ball.x,ball.y,palette[save.theme].gold,6);
+    if(state.impacts.length){
+      // All effects derive from physical contacts, never independently shove the ball.
+      const hit=state.impacts.reduce((a,b)=>a.speed>b.speed?a:b);
+      if(hit.speed>68){
+        beep(320+Math.min(850,hit.speed*.7),.045,"sine",.014);
+        screenShake=Math.max(screenShake,Math.min(2.4,hit.speed/250));
       }
-    }else if(ball.mode==="field"){
-      ball.vy+=GRAVITY*dt*(elapsed>13?1.5:1);
-      ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
-      if(ball.x<LEFT+ball.r){ball.x=LEFT+ball.r;ball.vx=Math.abs(ball.vx)*.74;}
-      if(ball.x>RIGHT-ball.r){ball.x=RIGHT-ball.r;ball.vx=-Math.abs(ball.vx)*.74;}
-      if(ball.y<TOP-ball.r){ball.y=TOP-ball.r;ball.vy=Math.abs(ball.vy)*.66;}
-      for(const p of pegs)bump(p.x,p.y,p.r);
-      for(const p of bumpers)if(bump(p.x,p.y,p.r,.92) && Math.random()<.16)
-        burst(p.x,p.y,palette[save.theme].sky,3);
-      for(let i=1;i<SLOT_COUNT;i++)bump(SLOT_LEFT+i*SLOT_W,SLOT_TOP-1,4.2,.62,false);
-      if(ball.y>=SLOT_TOP+15&&ball.vy>0){
-        ball.slot=Math.min(SLOT_COUNT-1,Math.max(0,Math.floor((ball.x-SLOT_LEFT)/SLOT_W)));
-        ball.mode="slot";ball.vx=0;ball.vy=170;beep(450,.11,"triangle",.045);
-      }
-      const v=Math.hypot(ball.vx,ball.vy);
-      if(v>1350){ball.vx*=1350/v;ball.vy*=1350/v;}
-    }else if(ball.mode==="slot"){
-      const target=SLOT_LEFT+(ball.slot+.5)*SLOT_W;
-      ball.x+=(target-ball.x)*Math.min(1,dt*12);ball.y+=ball.vy*dt;
-      if(ball.y>=SLOT_BOTTOM){ball.y=SLOT_BOTTOM;finishShot(ball.slot);}
+      for(const impact of state.impacts)
+        if(impact.bumper&&impact.speed>50&&Math.random()<.25)
+          burst(impact.x,impact.y,palette[save.theme].sky,3);
     }
-    trail.push({x:ball.x,y:ball.y});if(trail.length>9)trail.shift();
+    trail.push({x:ball.x,y:ball.y});
+    if(trail.length>11)trail.shift();
+    if(state.settled){beep(450,.10,"triangle",.045);finishShot(state.slot);}
   }
   particles=particles.filter(p=>p.life>0);
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=200*dt;p.life-=dt;}
@@ -495,8 +465,17 @@ function draw(timestamp){
   line(LEFT,106,LEFT,614,"#e2ac8666",4);
   line(RIGHT,110,RIGHT,615,"#e2ac8666",4);
   ctx.strokeStyle="#ffbc826a";ctx.lineWidth=3;ctx.beginPath();
-  ctx.moveTo(LEFT,155);ctx.quadraticCurveTo(50,101,110,106);
-  ctx.moveTo(RIGHT,145);ctx.quadraticCurveTo(392,86,LANE,107);ctx.stroke();
+  ctx.moveTo(LEFT,155);ctx.quadraticCurveTo(50,101,110,106);ctx.stroke();
+  // The visible launch elbow follows the SAME continuous rail geometry as the physics.
+  ctx.strokeStyle="#dbb995";ctx.lineWidth=3.5;ctx.beginPath();
+  let railStarted=false;
+  for(let i=0;i<RAIL_POINTS.length;i+=2){
+    const p=RAIL_POINTS[i];
+    if(p.y>185)continue;
+    if(!railStarted){ctx.moveTo(p.x,p.y);railStarted=true;}
+    else ctx.lineTo(p.x,p.y);
+  }
+  ctx.stroke();
   line(377,119,377,676,"#c7a1a0a0",3);line(407,112,407,677,"#c7a1a099",3);
   rounded(380,135,24,479,11,"#0e1428ad");
   for(const pair of [["L",305],["A",326],["N",347],["E",368]])
@@ -536,8 +515,10 @@ function draw(timestamp){
     if(lit)label("WIN",center,SLOT_TOP+53,9,"#ffd6a8","center","800");
   }
   for(let i=1;i<SLOT_COUNT;i++){
-    const x=SLOT_LEFT+i*SLOT_W;line(x,SLOT_TOP+2,x,SLOT_BOTTOM+24,"#cfadad",2);
-    circle(x,SLOT_TOP,4.2,"#e0d0c4");
+    const x=SLOT_LEFT+i*SLOT_W;
+    // Steel slot partitions are genuine collision segments, from entrance to floor.
+    line(x,SLOT_TOP,x,SLOT_BOTTOM,"#c8b0b1",2.3);
+    circle(x,SLOT_TOP,2.5,"#e0d0c4");
   }
   line(SLOT_LEFT,SLOT_TOP,SLOT_RIGHT,SLOT_TOP,"#ffbf8599",2.4);
   for(let j=0;j<11;j++){
