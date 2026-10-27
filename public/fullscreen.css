@@ -252,3 +252,14 @@ body{min-height:0!important}
   .bet-grid .bet-choice{min-height:46px;font-size:14px}
   .cabinet-logo{font-size:clamp(13px,1.35vw,19px)}
 }
+
+
+/* Landscape touch screens: older mobile stylesheet hid the entire side-betting
+ * widget. Show its actual controls; this block deliberately comes last. */
+@media (max-height:620px) and (orientation:landscape){
+  .side-left .wallet-panel .stake-live{display:flex!important}
+  .side-left .wallet-panel .field-head{display:flex!important}
+  .side-left .wallet-panel .bet-grid{display:grid!important}
+  .side-left .wallet-panel .refund-bet{display:block!important}
+  .side-left .wallet-panel #betHint{display:block!important}
+}
