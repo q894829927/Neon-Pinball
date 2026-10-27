@@ -67,7 +67,9 @@ test("browser entry point initializes and paints its first canvas frame",async()
   });
   const closeButtons=[new FakeElement(),new FakeElement()];
   let requested=[];
+  const docListeners=new Map();
   globalThis.document={
+    addEventListener(name,handler,options){docListeners.set(name,{handler,options});},
     getElementById(id){return elements.get(id)??null;},
     querySelector(s){
       if(s===".machine-section")return stage;
@@ -111,4 +113,20 @@ test("browser entry point initializes and paints its first canvas frame",async()
   assert.ok(elements.get("launchStatus").textContent.length>0,"HUD must refresh");
   assert.equal(addButtons.length,6);
   assert.equal(lamps.length,5);
+  // Safari event handler is non-passive and actively cancels a genuine
+  // double-tap on decorative UI, without blocking rapid betting buttons.
+  const touchGuard=docListeners.get("touchend");
+  assert.ok(touchGuard);
+  assert.equal(touchGuard.options.passive,false);
+  const eventTarget={closest:selector=>selector===".shell"?{}:null};
+  let prevented=0;
+  const makeTouch=(target)=>({
+    cancelable:true,target,changedTouches:[{clientX:90,clientY:90}],touches:[],
+    preventDefault(){prevented++;}
+  });
+  touchGuard.handler(makeTouch(eventTarget));
+  touchGuard.handler(makeTouch(eventTarget));
+  assert.equal(prevented,1,"Second nearby tap should be cancelled");
+  touchGuard.handler(makeTouch({closest:selector=>selector===".shell"||selector.startsWith("button")?{}:null}));
+  assert.equal(prevented,1,"Rapid clicks on real buttons should remain permitted");
 });
