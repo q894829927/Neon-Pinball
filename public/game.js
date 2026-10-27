@@ -1,5 +1,6 @@
-import { BETS, MULTIPLIERS, SLOT_COUNT, GIFTS, STORAGE_KEY,
-  freshSave, restoreSave, createRound, canAfford, settle, redeem, selectTheme
+import { MIN_STAKE, MAX_STAKE, MULTIPLIERS, SLOT_COUNT, GIFTS, STORAGE_KEY,
+  freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
+  commitShot, settleFunded, redeem, selectTheme
 } from "./rules.mjs";
 import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs";
 import {randomLaunch, varyLaunchVelocity, varyPegRebound} from "./physics-variation.mjs";
@@ -37,7 +38,7 @@ const bumpers=[{x:60,y:348,r:16},{x:324,y:388,r:16},{x:203,y:452,r:14}];
 let save;
 try{save=restoreSave(JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"));}
 catch{save=freshSave();}
-let round=createRound(),stake=10,phase="ready";
+let round=save.pendingRound,stake=save.pendingStake,phase="ready";
 let ball=null,trail=[],lastTime=0,accumulator=0,elapsed=0;
 let charging=false,charge=0,chargeStarted=0,chargeMode=null,dragPointerId=null,dragStartY=0;
 let shotStake=0,priorSave=null,settled=false,shotVelocity=null;
@@ -63,35 +64,46 @@ function notify(msg,d=1400){
 function refresh(){
   el.balance.textContent=save.marbles.toLocaleString("zh-CN");
   $("mobileBalance").textContent=save.marbles.toLocaleString("zh-CN");
-  $("mobileMultiplier").textContent=round.multiplier;
+  $("mobileMultiplier").textContent=round?.multiplier??"?";
+  $("mobileStake").textContent=stake.toLocaleString("zh-CN");
+  $("stakeAmount").textContent=stake.toLocaleString("zh-CN");
   $("mobileCards").textContent=save.cards;
   el.cards.textContent=save.cards;el.rounds.textContent=save.rounds;
   el.wins.textContent=save.wins;el.best.textContent=save.best;
   el.earned.textContent=save.earned.toLocaleString("zh-CN");
-  el.multiplier.textContent=round.multiplier;
-  el.payout.textContent=stake*round.multiplier;
+  el.multiplier.textContent=round?.multiplier??"?";
+  el.payout.textContent=round?(stake*round.multiplier).toLocaleString("zh-CN"):"—";
+  $("roundLight").textContent=round?"● 倍率已揭晓":"● 待投珠";
+  $("multiplierCaption").textContent=round?"本局已锁定倍率，可继续投珠":"累计投满 5 颗后揭晓倍率";
   el.shopCards.textContent=save.cards;
   const names={classic:"经典霓虹",sunset:"落日橘灯光",mint:"薄荷绿灯光",violet:"极光紫灯光"};
   el.themeName.textContent=names[save.theme]||names.classic;
   document.body.dataset.theme=save.theme;
   document.querySelectorAll(".rate-strip span").forEach((n,i)=>
-    n.classList.toggle("active",MULTIPLIERS[i]===round.multiplier));
-  document.querySelectorAll("[data-bet]").forEach(btn=>{
-    const v=Number(btn.dataset.bet),selected=v===stake;
-    btn.classList.toggle("selected",selected);btn.setAttribute("aria-pressed",String(selected));
-    btn.disabled=phase!=="ready"||save.marbles<v;
+    n.classList.toggle("active",Boolean(round&&MULTIPLIERS[i]===round.multiplier)));
+  document.querySelectorAll("[data-add]").forEach(btn=>{
+    const n=Number(btn.dataset.add);
+    btn.disabled=phase!=="ready"||save.marbles<n||stake+n>MAX_STAKE;
   });
-  el.status.textContent=phase==="ready"?"等待发射":
-    phase==="shooting"?"弹珠运行中":phase==="result"?"本局已结束":"弹珠不足";
-  $("betHint").textContent=save.marbles<10?"余额不足：下一局可免费领取体验弹珠。":
-    "仅在发射时扣除投入；未中奖不返还。";
+  document.querySelectorAll("[data-refund]").forEach(btn=>{
+    btn.disabled=phase!=="ready"||stake===0||charging;
+  });
+  const remaining=Math.max(0,MIN_STAKE-stake);
+  const hint=remaining>0
+    ?("还差 "+remaining+" 颗揭晓倍率")
+    :("本局倍率 ×"+round.multiplier+" 已锁定，可继续投珠");
+  $("betHint").textContent=hint+(remaining>0&&save.marbles<remaining?" · 余额不足可退回投入":"");
+  $("mobileBetHint").textContent=hint;
+  el.status.textContent=phase==="ready"
+    ? (remaining>0?"先投入至少 5 颗":"等待拉杆发射")
+    :phase==="shooting"?"弹珠运行中":"本局已结束";
 }
 function updatePower(){
   el.bar.style.width=Math.round(charge*100)+"%";
   el.power.textContent=Math.round(charge*100)+"%";
 }
 function beginCharge(mode, startY=0, pointerId=null){
-  if(phase!=="ready"||!canAfford(save,stake)||charging)return false;
+  if(phase!=="ready"||!canLaunch(save)||charging)return false;
   charging=true;charge=0;chargeMode=mode;chargeStarted=performance.now();
   dragStartY=startY;dragPointerId=pointerId;
   updatePower();el.status.textContent=mode==="pointer"?"正在下拉拉杆":"空格蓄力中";
@@ -109,15 +121,18 @@ function releaseCharge(){
     ?Math.min(1,(performance.now()-chargeStarted)/1550)
     :charge;
   charging=false;chargeMode=null;dragPointerId=null;
-  if(!canFire(power)||phase!=="ready"||!canAfford(save,stake)){
+  if(!canFire(power)||phase!=="ready"||!canLaunch(save)){
     cancelCharge();return;
   }
   charge=power;updatePower();
   // Same pull force is not a guaranteed repeat: small independent variations
   // imitate spring friction and launch alignment, without deciding the outcome.
   shotVelocity=varyLaunchVelocity(firingVelocity(power),randomLaunch());
-  priorSave={...save,redeemed:[...save.redeemed]};shotStake=stake;
-  save={...save,marbles:save.marbles-stake};persist();
+  shotStake=stake;
+  // Deposit was already charged when marbles were inserted. Commit only
+  // clears the pending stake so a reload cannot replay a fired shot.
+  save=commitShot(save);
+  priorSave={...save,redeemed:[...save.redeemed]};persist();
   phase="shooting";settled=false;elapsed=0;trail=[];particles=[];
   ball={x:LANE,y:606,vx:0,vy:shotVelocity.laneVy,r:R,mode:"lane",slot:-1,spin:0};
   beep(370+power*210,.23,"sawtooth",.045);notify("GOOD LUCK! ✦",850);refresh();
@@ -191,7 +206,7 @@ function advance(dt){
 function finishShot(slot){
   if(settled||!priorSave)return;
   settled=true;
-  const result=settle(priorSave,round,shotStake,slot);
+  const result=settleFunded(priorSave,round,shotStake,slot);
   save=result.save;persist();phase="result";
   el.resultStamp.textContent=result.hit?"JACKPOT · NICE SHOT":"TRY AGAIN · NEXT BALL";
   el.resultTitle.textContent=result.hit?"红灯命中！":"没有命中红灯";
@@ -202,7 +217,7 @@ function finishShot(slot){
     shotStake+" 颗 × "+round.multiplier+" 倍 = "+result.reward+" 颗":
     "投入 "+shotStake+" 颗 · 落入第 "+String(slot+1).padStart(2,"0")+" 槽";
   el.cardEarned.hidden=result.newCards===0;
-  el.next.textContent=save.marbles<10?"领取体验弹珠，重新开始 →":"下一局 →";
+  el.next.textContent=save.marbles<MIN_STAKE?"领取体验弹珠，重新开始 →":"下一局 →";
   el.overlay.hidden=false;
   if(result.hit){beep(780,.25,"triangle",.065);burst(ball.x,ball.y,palette[save.theme].gold,26);}
   else beep(190,.18,"sawtooth",.035);
@@ -210,8 +225,9 @@ function finishShot(slot){
 }
 function nextRound(){
   if(phase!=="result")return;
-  if(save.marbles<10){save={...save,marbles:100};persist();}
-  round=createRound();stake=BETS.find(v=>v<=save.marbles)||10;
+  if(save.marbles<MIN_STAKE){save={...save,marbles:100};persist();}
+  // No pre-rolled multiplier: the next round starts with an empty machine.
+  round=save.pendingRound;stake=save.pendingStake;
   charge=0;charging=false;chargeMode=null;dragPointerId=null;
   ball=null;trail=[];settled=false;priorSave=null;shotStake=0;shotVelocity=null;
   updatePower();phase="ready";el.overlay.hidden=true;refresh();
@@ -327,7 +343,7 @@ function draw(timestamp){
   rounded(16,12,389,65,12,"#281b37","#96716b");
   rounded(29,22,362,45,8,"#110f27","#b276666b");
   label("✦   MARBLE LUCK   ✦",210,39,13,p.gold,"center","700");
-  label("倍率 "+round.multiplier+"× / 中奖红灯 03",210,57,10,"#be9fa7","center");
+  label(round?"倍率 "+round.multiplier+"× / 中奖红灯 03":"投入 5 颗后揭晓倍率与红灯槽",210,57,10,"#be9fa7","center");
   line(LEFT,106,LEFT,614,"#e2ac8666",4);
   line(RIGHT,110,RIGHT,615,"#e2ac8666",4);
   ctx.strokeStyle="#ffbc826a";ctx.lineWidth=3;ctx.beginPath();
@@ -350,7 +366,7 @@ function draw(timestamp){
   }
   line(26,588,53,616,p.gold+"88",3);line(366,588,344,617,p.gold+"88",3);
   for(let i=0;i<SLOT_COUNT;i++){
-    const x=SLOT_LEFT+i*SLOT_W,lit=round.lit.includes(i);
+    const x=SLOT_LEFT+i*SLOT_W,lit=Boolean(round&&round.lit.includes(i));
     rounded(x+1,SLOT_TOP+8,SLOT_W-2,77,2,lit?"#813041":"#15243c",
       lit?"#ff7d8299":"#5f617955");
     if(lit){ctx.shadowBlur=5;ctx.shadowColor=p.red;
@@ -391,11 +407,23 @@ function frame(now){
   if(steps===14)accumulator=0;
   draw(now);requestAnimationFrame(frame);
 }
-document.querySelectorAll("[data-bet]").forEach(btn=>btn.addEventListener("click",()=>{
-  if(phase!=="ready")return;
-  const value=Number(btn.dataset.bet);
-  if(!canAfford(save,value))return;
-  stake=value;refresh();beep(450,.06,"sine",.025);
+document.querySelectorAll("[data-add]").forEach(btn=>btn.addEventListener("click",()=>{
+  if(phase!=="ready"||charging)return;
+  const amount=Number(btn.dataset.add);
+  if(save.marbles<amount)return;
+  const wasRevealed=Boolean(round);
+  try{
+    save=depositMarbles(save,amount);
+  }catch(error){notify(error.message);return;}
+  stake=save.pendingStake;round=save.pendingRound;
+  persist();refresh();
+  beep(wasRevealed?490:410,.055,"triangle",.025);
+  if(!wasRevealed&&round){notify("倍率 ×"+round.multiplier+" 已揭晓!",1400);beep(800,.2,"triangle");}
+}));
+document.querySelectorAll("[data-refund]").forEach(btn=>btn.addEventListener("click",()=>{
+  if(phase!=="ready"||charging||stake===0)return;
+  save=refundDeposit(save);stake=0;round=null;
+  persist();refresh();beep(310,.08,"triangle",.025);
 }));
 function pointerPosition(event){
   // Coordinates always track the current canvas bounds, even after orientation
@@ -464,7 +492,7 @@ document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("cli
 }));
 $("resetBtn").addEventListener("click",()=>{
   if(!confirm("确定清空所有虚拟弹珠、奖励卡和主题吗？此操作无法撤销。"))return;
-  save=freshSave();round=createRound();stake=10;phase="ready";
+  save=freshSave();round=null;stake=0;phase="ready";
   ball=null;trail=[];charge=0;charging=false;chargeMode=null;dragPointerId=null;
   priorSave=null;settled=false;shotVelocity=null;
   persist();updatePower();refresh();el.shop.close();el.overlay.hidden=true;

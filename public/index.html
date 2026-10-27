@@ -30,7 +30,7 @@
         <h1>星运<span>弹珠局</span><b>✳</b></h1>
         <p class="tagline">蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运。</p>
       </div>
-      <div class="edition"><span>ARCADE</span><b>V 0.3.1</b></div>
+      <div class="edition"><span>ARCADE</span><b>V 0.4.0</b></div>
     </section>
     <main class="machine-layout">
       <section class="side side-left" aria-label="投入和账户">
@@ -40,22 +40,24 @@
           <div class="wallet-value"><span class="coin">●</span><strong id="balance">100</strong><span class="unit">颗</span></div>
           <div class="meter-row"><span>累计局数 <b id="rounds">0</b></span><span>中奖次数 <b id="wins">0</b></span></div>
           <div class="thin-rule"></div>
-          <div class="field-head"><span>本局投入</span><span>SELECT BET</span></div>
-          <div class="bet-grid" role="group" aria-label="选择投入弹珠数">
-            <button type="button" class="bet-choice selected" data-bet="10" aria-pressed="true"><span>●</span>10</button>
-            <button type="button" class="bet-choice" data-bet="20" aria-pressed="false"><span>●</span>20</button>
-            <button type="button" class="bet-choice" data-bet="50" aria-pressed="false"><span>●</span>50</button>
+          <div class="field-head"><span>投珠</span><span>INSERT MARBLES</span></div>
+          <div class="stake-live" aria-live="polite">本局已投 <strong id="stakeAmount">0</strong> <span>颗</span></div>
+          <div class="bet-grid" role="group" aria-label="逐步投入弹珠">
+            <button type="button" class="bet-choice" data-add="1">+1 <span>颗</span></button>
+            <button type="button" class="bet-choice" data-add="5">+5 <span>颗</span></button>
+            <button type="button" class="bet-choice" data-add="10">+10 <span>颗</span></button>
           </div>
-          <p class="hint" id="betHint">仅在发射时扣除投入；未中奖不返还。</p>
+          <p class="hint" id="betHint">累计投入 5 颗后，揭晓本局倍率。</p>
+          <button type="button" class="refund-bet" data-refund disabled>↶ 退回已投弹珠</button>
         </div>
         <div class="panel multiplier-panel">
-          <div class="panel-header"><span>02 / THIS ROUND</span><span class="live-dot">● LIVE</span></div>
-          <p class="muted-caption">本局随机奖励倍率</p>
-          <div class="mult-display"><span>×</span><strong id="multiplier">6</strong><span class="mult-caption">倍</span></div>
+          <div class="panel-header"><span>02 / THIS ROUND</span><span class="live-dot" id="roundLight">● 待投珠</span></div>
+          <p class="muted-caption" id="multiplierCaption">累计投满 5 颗后揭晓倍率</p>
+          <div class="mult-display"><span>×</span><strong id="multiplier">?</strong><span class="mult-caption">倍</span></div>
           <div class="rate-strip"><span>2×</span><span>4×</span><span>6×</span><span>8×</span><span>10×</span></div>
           <div class="thin-rule"></div>
-          <div class="payout-row"><span>命中红灯可得</span><strong><span id="possiblePayout">60</span><small>颗</small></strong></div>
-          <p class="hint">中奖槽位已经亮红灯。每局重新抽取倍率和亮灯槽。</p>
+          <div class="payout-row"><span>命中红灯可得</span><strong><span id="possiblePayout">—</span><small>颗</small></strong></div>
+          <p class="hint">投满 5 颗后倍率与红灯槽同时揭晓。继续投珠不会重新抽取。</p>
         </div>
         <div class="tip-card"><span class="tip-icon">↘</span><div><strong>下拉机械拉杆发射</strong><p>在机台右下角抓住金色拉杆，向下拉得越远，钢珠发射越有力。</p></div></div>
       </section>
@@ -64,14 +66,18 @@
         <div class="mobile-playbar" aria-label="移动端快速操作">
           <div class="mobile-stats">
             <div class="mobile-stat"><span>弹珠余额</span><strong><i class="mini-coin" aria-hidden="true">●</i> <span id="mobileBalance">100</span></strong></div>
-            <div class="mobile-stat"><span>本局倍率</span><strong class="mobile-mult">×<span id="mobileMultiplier">6</span></strong></div>
+            <div class="mobile-stat"><span>本局倍率</span><strong class="mobile-mult">×<span id="mobileMultiplier">?</span></strong></div>
             <div class="mobile-stat"><span>奖励卡</span><strong>✦ <span id="mobileCards">0</span></strong></div>
           </div>
-          <div class="mobile-bets" role="group" aria-label="移动端选择本局投入">
-            <span class="mobile-bet-label">投入</span>
-            <button type="button" class="bet-choice selected" data-bet="10" aria-pressed="true">10 颗</button>
-            <button type="button" class="bet-choice" data-bet="20" aria-pressed="false">20 颗</button>
-            <button type="button" class="bet-choice" data-bet="50" aria-pressed="false">50 颗</button>
+          <div class="mobile-bet-status" aria-live="polite">
+            <span>本局已投 <strong id="mobileStake">0</strong> 颗</span>
+            <span class="mobile-bet-hint" id="mobileBetHint">再投 5 颗揭晓倍率</span>
+            <button type="button" class="mobile-refund" data-refund disabled>退回</button>
+          </div>
+          <div class="mobile-bets" role="group" aria-label="移动端逐步投入弹珠">
+            <button type="button" class="bet-choice" data-add="1">+1 颗</button>
+            <button type="button" class="bet-choice" data-add="5">+5 颗</button>
+            <button type="button" class="bet-choice" data-add="10">+10 颗</button>
           </div>
         </div>
         <div class="cabinet">
@@ -128,7 +134,7 @@
         </div>
         <div class="rules-summary">
           <div class="rules-badge">HOW TO PLAY</div>
-          <div class="rule-step"><span>01</span><p>投入虚拟弹珠</p></div>
+          <div class="rule-step"><span>01</span><p>投满 5 颗揭晓倍率，可继续投珠</p></div>
           <div class="rule-step"><span>02</span><p>下拉右侧机械拉杆，松开发射</p></div>
           <div class="rule-step"><span>03</span><p>撞击钉阵，落入红灯槽得奖</p></div>
           <button type="button" class="text-button" id="howToBtn">查看完整规则 ↗</button>
@@ -142,12 +148,12 @@
     <div class="dialog-top"><span>HOW IT WORKS</span><button type="button" class="close-btn" data-close="infoDialog" aria-label="关闭">×</button></div>
     <h2>弹珠机玩法说明</h2>
     <div class="rules-content">
-      <p><b>① 投入弹珠</b>：从 10、20、50 颗中选择本局筹码，只有发射后才扣除。</p>
-      <p><b>② 抽取奖励</b>：每局随机产生 2、4、6、8、10 倍倍率，底部 11 个槽位中随机亮起 3 个红灯。</p>
+      <p><b>① 逐步投珠</b>：点击 +1、+5 或 +10 颗，将虚拟弹珠投入本局，余额立即扣除。累计投入 5 颗时才随机揭晓本局倍率和中奖红灯槽；之后可以继续投注，倍率及红灯槽不变。发射前可退回全部已投弹珠。</p>
+      <p><b>② 抽取奖励</b>：投入满 5 颗时随机产生 2、4、6、8、10 倍倍率，底部 11 个槽位中随机亮起 3 个红灯。每局只抽一次。</p>
       <p><b>③ 发射钢珠</b>：在机台右侧下方按住金色拉杆向下拖动，拉得越远力度越大，松手后发射。也可按住空格键蓄力、松开发射。钢珠发射后不能再控制方向。同样的力度也有轻微的弹簧和金属钉碰撞误差，因此每次轨迹可能不同。</p>
       <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。</p>
       <p><b>⑤ 奖励卡片</b>：单次中奖奖励 ≥ 50 颗额外获得 1 张卡片，卡片可兑换游戏内虚拟外观。</p>
-      <p><b>⑥ 余额不足</b>：余额小于最小投入 10 颗时，可免费重开一份初始弹珠继续娱乐。卡片和已兑换外观会保留。</p>
+      <p><b>⑥ 余额不足</b>：余额少于 5 颗且没有可用的本局投入时，可在一局结束后免费领取新一份体验弹珠。已经投入但尚未发射的弹珠可退回。</p>
       <p class="rule-warning">仅供单人娱乐。所有弹珠和卡片均为虚拟积分，没有现金价值，不提供真实奖品兑换。</p>
     </div>
     <button class="primary modal-close" type="button" data-close="infoDialog">知道了</button>

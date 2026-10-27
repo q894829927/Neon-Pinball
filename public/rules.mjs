@@ -1,6 +1,8 @@
 /** Pure scoring and rewards. All credits are virtual; there is no cash-out. */
 export const STARTING_MARBLES = 100;
-export const BETS = Object.freeze([10, 20, 50]);
+export const MIN_STAKE = 5;
+export const DEPOSIT_STEPS = Object.freeze([1, 5, 10]);
+export const MAX_STAKE = 1_000_000; // guard unsafe integer growth in local saves
 export const MULTIPLIERS = Object.freeze([2, 4, 6, 8, 10]);
 export const SLOT_COUNT = 11;
 export const LIT_COUNT = 3;
@@ -13,7 +15,7 @@ export const GIFTS = Object.freeze([
 ]);
 
 export function freshSave() {
-  return { marbles: STARTING_MARBLES, cards: 0, rounds: 0, wins: 0, best: 0, earned: 0, redeemed: [], theme: "classic" };
+  return { marbles: STARTING_MARBLES, cards: 0, rounds: 0, wins: 0, best: 0, earned: 0, redeemed: [], theme: "classic", pendingStake: 0, pendingRound: null };
 }
 
 function int(value, max = 1_000_000_000) {
@@ -28,11 +30,18 @@ export function restoreSave(candidate) {
     ? [...new Set(candidate.redeemed.filter(id => typeof id === "string" && valid.has(id)))]
     : [];
   const theme = candidate.theme === "classic" || redeemed.includes(candidate.theme) ? candidate.theme : "classic";
+  const pendingStake = int(candidate.pendingStake, MAX_STAKE);
+  const pendingRound = pendingStake >= MIN_STAKE && isValidRound(candidate.pendingRound)
+    ? { multiplier: candidate.pendingRound.multiplier, lit: [...candidate.pendingRound.lit] }
+    : null;
   return {
     marbles: int(candidate.marbles), cards: int(candidate.cards, 9999),
     rounds: int(candidate.rounds), wins: int(candidate.wins),
     best: int(candidate.best), earned: int(candidate.earned),
     redeemed, theme,
+    // A partial deposit stays funded across a refresh. No multiplier before 5.
+    pendingStake: pendingRound || pendingStake < MIN_STAKE ? pendingStake : 0,
+    pendingRound,
   };
 }
 
@@ -52,26 +61,68 @@ export function createRound(rng = Math.random) {
   return { multiplier, lit: indices.slice(0, LIT_COUNT).sort((a, b) => a - b) };
 }
 
-export function validBet(value) { return BETS.includes(value); }
-export function canAfford(save, stake) { return validBet(stake) && save.marbles >= stake; }
+export function isValidRound(round) {
+  return Boolean(round && MULTIPLIERS.includes(round.multiplier) &&
+    Array.isArray(round.lit) && round.lit.length === LIT_COUNT &&
+    round.lit.every(n => Number.isInteger(n) && n >= 0 && n < SLOT_COUNT) &&
+    new Set(round.lit).size === LIT_COUNT);
+}
 
-/** Called once after real physics placed the shot into one slot. */
-export function settle(save, round, stake, slot) {
-  if (!canAfford(save, stake)) throw new Error("Insufficient virtual marbles or invalid stake");
-  if (!round || !MULTIPLIERS.includes(round.multiplier) ||
-      !Array.isArray(round.lit) || round.lit.length !== LIT_COUNT ||
-      !round.lit.every(n => Number.isInteger(n) && n >= 0 && n < SLOT_COUNT) ||
-      new Set(round.lit).size !== LIT_COUNT) throw new Error("Invalid round");
+export function validBet(value) {
+  return Number.isSafeInteger(value) && value >= MIN_STAKE && value <= MAX_STAKE;
+}
+export function canAfford(save, stake) {
+  return validBet(stake) && save.marbles >= stake;
+}
+export function canLaunch(save) {
+  return validBet(save.pendingStake) && isValidRound(save.pendingRound);
+}
+
+/** Transfer virtual marbles from the bank to the current unreleased shot.
+ * The random multiplier and three red slots are revealed ONCE, at the fifth marble.
+ */
+export function depositMarbles(save, amount, rng = Math.random) {
+  if (!Number.isSafeInteger(amount) || amount <= 0 ||
+      amount > save.marbles || save.pendingStake + amount > MAX_STAKE) {
+    throw new Error("投入数量无效或弹珠不足");
+  }
+  const pendingStake = save.pendingStake + amount;
+  const pendingRound = pendingStake >= MIN_STAKE
+    ? (save.pendingRound ?? createRound(rng))
+    : null;
+  return { ...save, marbles: save.marbles - amount, pendingStake, pendingRound };
+}
+
+export function refundDeposit(save) {
+  if (!Number.isSafeInteger(save.pendingStake) || save.pendingStake < 0) {
+    throw new Error("投入状态无效");
+  }
+  return {
+    ...save,
+    marbles: save.marbles + save.pendingStake,
+    pendingStake: 0,
+    pendingRound: null,
+  };
+}
+
+/** Marks an already-funded shot as fired. Do not debit the balance twice. */
+export function commitShot(save) {
+  if (!canLaunch(save)) throw new Error("先投入至少5颗弹珠");
+  return { ...save, pendingStake: 0, pendingRound: null };
+}
+
+function scoreShot(save, round, stake, slot, funded) {
+  if (!validBet(stake) || !isValidRound(round)) throw new Error("Invalid stake or round");
+  if (!funded && !canAfford(save, stake)) throw new Error("Insufficient virtual marbles");
   if (!Number.isInteger(slot) || slot < 0 || slot >= SLOT_COUNT) throw new Error("Invalid slot");
   const hit = round.lit.includes(slot);
   const reward = hit ? stake * round.multiplier : 0;
   const newCards = reward >= 50 ? 1 : 0;
-  const net = reward - stake;
   return {
-    hit, reward, newCards, net,
+    hit, reward, newCards, net: reward - stake,
     save: {
       ...save,
-      marbles: save.marbles - stake + reward,
+      marbles: save.marbles - (funded ? 0 : stake) + reward,
       cards: save.cards + newCards,
       rounds: save.rounds + 1,
       wins: save.wins + Number(hit),
@@ -79,6 +130,15 @@ export function settle(save, round, stake, slot) {
       earned: save.earned + reward,
     },
   };
+}
+
+/** Compatibility helper for unfunded score simulations. */
+export function settle(save, round, stake, slot) {
+  return scoreShot(save, round, stake, slot, false);
+}
+/** Used after commitShot:投入 already removed from balance. */
+export function settleFunded(save, round, stake, slot) {
+  return scoreShot(save, round, stake, slot, true);
 }
 
 export function redeem(save, id) {

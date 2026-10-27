@@ -1,15 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  BETS,MULTIPLIERS,SLOT_COUNT,LIT_COUNT,STARTING_MARBLES,
-  freshSave,restoreSave,createRound,canAfford,settle,redeem,selectTheme,GIFTS
+  MIN_STAKE,DEPOSIT_STEPS,MULTIPLIERS,SLOT_COUNT,LIT_COUNT,STARTING_MARBLES,
+  freshSave,restoreSave,createRound,canAfford,settle,settleFunded,depositMarbles,
+  refundDeposit,commitShot,canLaunch,redeem,selectTheme,GIFTS
 } from "../public/rules.mjs";
 
 test("game begins with exactly 100 virtual marbles",()=>{
   const save=freshSave();
   assert.equal(save.marbles,STARTING_MARBLES);
   assert.equal(save.cards,0);
-  assert.deepEqual(BETS,[10,20,50]);
+  assert.equal(MIN_STAKE,5);
+  assert.deepEqual(DEPOSIT_STEPS,[1,5,10]);
+  assert.equal(save.pendingStake,0);
+  assert.equal(save.pendingRound,null);
   assert.deepEqual(MULTIPLIERS,[2,4,6,8,10]);
   assert.equal(SLOT_COUNT,11);
   assert.equal(LIT_COUNT,3);
@@ -64,9 +68,11 @@ test("card threshold depends on ONE shot winning 50+ marbles",()=>{
 test("invalid stakes, lack of marbles and invalid slot cannot settle",()=>{
   const s=freshSave();
   assert.equal(canAfford(s,10),true);
-  assert.equal(canAfford(s,12),false);
+  assert.equal(canAfford(s,12),true);
+  assert.equal(canAfford(s,4),false);
+  assert.equal(canAfford(s,0),false);
   assert.equal(canAfford({...s,marbles:9},10),false);
-  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4,7]},12,2));
+  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4,7]},4,2));
   assert.throws(()=>settle(s,{multiplier:6,lit:[2,4,7]},10,-1));
   assert.throws(()=>settle(s,{multiplier:6,lit:[2,2,7]},10,2));
   assert.throws(()=>settle(s,{multiplier:99,lit:[2,4,7]},10,2));
@@ -154,9 +160,10 @@ test("mobile first-play layout includes visible stats and stake controls before 
   for(const id of ["mobileBalance","mobileMultiplier","mobileCards","plungerGrip"]){
     assert.match(html,new RegExp('id="'+id+'"'));
   }
-  for(const bet of [10,20,50]){
-    assert.equal((html.match(new RegExp('data-bet="'+bet+'"',"g"))||[]).length,2);
+  for(const amount of [1,5,10]){
+    assert.equal((html.match(new RegExp('data-add="'+amount+'"',"g"))||[]).length,2);
   }
+  assert.doesNotMatch(html,/data-bet=/);
   assert.match(script,/"mobileBalance"/);
   assert.match(script,/"mobileMultiplier"/);
   assert.match(script,/"mobileCards"/);
@@ -227,4 +234,102 @@ test("randomness changes real physics but does not preselect payout slots",async
   assert.match(game,/withVariation&&-impact>35/);
   assert.match(game,/finishShot\(ball\.slot\)/);
   assert.match(game,/for\(let i=1;i<SLOT_COUNT;i\+\+\)bump\(SLOT_LEFT\+i\*SLOT_W,SLOT_TOP-1,4\.2,\.62,false\)/);
+});
+
+test("five inserted marbles reveal multiplier once, later deposits retain it",()=>{
+  let randomCalls=0;
+  const rng=()=>{randomCalls++;return .5;};
+  let save=freshSave();
+  for(let i=0;i<4;i++){
+    save=depositMarbles(save,1,rng);
+    assert.equal(save.pendingRound,null);
+    assert.equal(save.pendingStake,i+1);
+    assert.equal(randomCalls,0,"no early RNG draw");
+    assert.equal(canLaunch(save),false);
+  }
+  save=depositMarbles(save,1,rng);
+  assert.equal(save.pendingStake,5);
+  assert.equal(save.marbles,95);
+  assert.equal(save.pendingRound.multiplier,6);
+  assert.equal(save.pendingRound.lit.length,3);
+  assert.equal(canLaunch(save),true);
+  const revealed=JSON.stringify(save.pendingRound);
+  const count=randomCalls;
+  save=depositMarbles(save,10,()=>{throw Error("must not reroll after reveal");});
+  assert.equal(save.pendingStake,15);
+  assert.equal(save.marbles,85);
+  assert.equal(JSON.stringify(save.pendingRound),revealed);
+  assert.equal(randomCalls,count);
+  const slot=save.pendingRound.lit[0];
+  const round=save.pendingRound;
+  const funded=commitShot(save);
+  assert.equal(funded.pendingStake,0);
+  assert.equal(funded.pendingRound,null);
+  assert.equal(funded.marbles,85,"commit must not debit twice");
+  const result=settleFunded(funded,round,15,slot);
+  assert.equal(result.reward,90);
+  assert.equal(result.save.marbles,175);
+  assert.equal(result.newCards,1);
+});
+
+test("one-click +5 unlocks multiplier; partial deposits survive reload and can be returned",()=>{
+  let original=depositMarbles(freshSave(),3,()=>{throw Error("too early");});
+  assert.equal(original.pendingRound,null);
+  original=restoreSave(JSON.parse(JSON.stringify(original)));
+  assert.equal(original.marbles,97);
+  assert.equal(original.pendingStake,3);
+  original=depositMarbles(original,5,()=>0);
+  const fixed=JSON.stringify(original.pendingRound);
+  const again=restoreSave(JSON.parse(JSON.stringify(original)));
+  assert.equal(JSON.stringify(again.pendingRound),fixed);
+  assert.equal(again.pendingStake,8);
+  assert.equal(again.marbles,92);
+  const refunded=refundDeposit(again);
+  assert.equal(refunded.marbles,100);
+  assert.equal(refunded.pendingStake,0);
+  assert.equal(refunded.pendingRound,null);
+  assert.equal(canLaunch(refunded),false);
+  const five=depositMarbles(refunded,5,()=>1);
+  assert.equal(five.pendingStake,5);
+  assert.equal(five.pendingRound.multiplier,10);
+  assert.equal(five.marbles,95);
+});
+
+test("prepaid losses and minimum 5 stake never subtract twice",()=>{
+  let save=depositMarbles(freshSave(),5,()=>0);
+  assert.equal(save.marbles,95);
+  const funded=commitShot(save);
+  const normal=settleFunded(funded,save.pendingRound,5,10);
+  assert.equal(normal.hit,false);
+  assert.equal(normal.reward,0);
+  assert.equal(normal.save.marbles,95);
+  assert.equal(normal.save.rounds,1);
+  assert.throws(()=>commitShot(funded),/至少5颗/);
+  assert.throws(()=>depositMarbles(freshSave(),0));
+  assert.throws(()=>depositMarbles(freshSave(),101));
+  assert.throws(()=>depositMarbles(freshSave(),-5));
+  assert.throws(()=>depositMarbles(freshSave(),1.5));
+  assert.equal(canLaunch(depositMarbles(freshSave(),4,()=>0)),false);
+  const all=depositMarbles(freshSave(),100,()=>0);
+  assert.equal(all.marbles,0);
+  assert.equal(canLaunch(all),true);
+  assert.equal(settleFunded(commitShot(all),all.pendingRound,100,10).save.marbles,0);
+});
+
+test("new UI hides multiplier and slot lights until five marbles are funded",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  assert.match(html,/id="multiplier">\?</);
+  assert.match(html,/id="mobileMultiplier">\?</);
+  assert.match(html,/id="stakeAmount">0/);
+  assert.match(html,/id="mobileStake">0/);
+  assert.match(html,/data-refund/);
+  assert.match(game,/round\?\.multiplier\?\?"\?"/);
+  assert.match(game,/round&&round\.lit\.includes\(i\)/);
+  assert.match(game,/depositMarbles\(save,amount\)/);
+  assert.match(game,/refundDeposit\(save\)/);
+  assert.match(game,/save=commitShot\(save\)/);
+  assert.match(game,/settleFunded\(priorSave,round,shotStake,slot\)/);
+  assert.doesNotMatch(html,/data-bet=/);
 });
