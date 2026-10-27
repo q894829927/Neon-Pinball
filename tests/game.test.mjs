@@ -102,7 +102,7 @@ test("deployment has actual pinball UI rather than old flipper controls",async()
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/style\.css/);
   assert.match(html,/\/games\/pinball\/game\.js/);
-  assert.match(html,/十一条落珠槽/);
+  assert.match(html,/11 个奖励槽|十一条落珠槽/);
   assert.match(html,/下拉拉杆|机械拉杆/);
   assert.doesNotMatch(html,/id="launchBtn"|class="launch-button"|长按发射按钮/);
   assert.match(js,/bump\(p\.x,p\.y,p\.r\)/);
