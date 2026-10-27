@@ -93,8 +93,39 @@ const {chromium}=require("playwright");
         assert.deepEqual(errors,[],"No runtime errors after physics settlement");
         await page.screenshot({path:"/tmp/pinball-finished-shot.png",fullPage:true});
       }
-      if(profile.name==="desktop"||profile.name==="phone")
-        assert.ok(evidence.scrollHeight<=profile.height+2,"Unexpected vertical page scrolling");
+      if(profile.name==="desktop")
+        assert.ok(evidence.scrollHeight<=profile.height+2,"Desktop unexpectedly scrolls");
+      if(profile.name==="phone"||profile.name==="small-phone"){
+        const layout=await page.evaluate(()=>{
+          const hud=document.querySelector(".mobile-playbar").getBoundingClientRect();
+          const machine=document.querySelector(".cabinet").getBoundingClientRect();
+          const power=document.querySelector(".launch-console").getBoundingClientRect();
+          return {
+            hud:{left:hud.left,width:hud.width},
+            machine:{left:machine.left,width:machine.width,top:machine.top,bottom:machine.bottom},
+            power:{left:power.left,width:power.width,bottom:power.bottom},
+            scrollWidth:document.documentElement.scrollWidth,
+            scrollHeight:document.documentElement.scrollHeight,
+            viewportWidth:window.innerWidth,
+            touchAction:getComputedStyle(document.querySelector(".shell")).touchAction,
+            canvasTouchAction:getComputedStyle(document.querySelector("#board")).touchAction,
+          };
+        });
+        console.log("PHONE-LAYOUT "+profile.name+" "+JSON.stringify(layout));
+        assert.ok(layout.machine.width>=layout.hud.width*.97,"Cabinet must fill the wager bar width");
+        assert.ok(Math.abs(layout.machine.left-layout.hud.left)<=3,"Cabinet/HUD left edges must align");
+        assert.ok(Math.abs(layout.power.width-layout.hud.width)<=3,"Power bar must match width");
+        assert.ok(layout.scrollWidth<=layout.viewportWidth+2,"No horizontal scrolling");
+        assert.match(layout.touchAction,/manipulation/,"Double-tap zoom disabled on game UI");
+        assert.equal(layout.canvasTouchAction,"none","Plunger gestures must work");
+        await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+        await page.waitForTimeout(120);
+        const bottom=await page.evaluate(()=>({
+          powerBottom:document.querySelector(".launch-console").getBoundingClientRect().bottom,
+          visibleHeight:window.innerHeight,
+        }));
+        assert.ok(bottom.powerBottom<=bottom.visibleHeight+2,"Power bar and bottom slots remain reachable");
+      }
       await ctx.close();
     }
   }finally{await browser.close()}

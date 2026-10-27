@@ -1,12 +1,12 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.8.0";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.8.0";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.8.0";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.8.0";
-import {createPegLayout} from "./board-layout.mjs?v=0.8.0";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.8.0";
+} from "./rules.mjs?v=0.8.1";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.8.1";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.8.1";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.8.1";
+import {createPegLayout} from "./board-layout.mjs?v=0.8.1";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.8.1";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -375,6 +375,14 @@ const launchConsole=document.querySelector(".launch-console");
 let fitScheduled=false;
 function fitMachine(){
   if(!machineSection||!cabinet||!launchConsole)return;
+  // On portrait phones, match the wager panel width instead of shrinking the
+  // board to satisfy the viewport height. Short screens may scroll vertically.
+  if(window.matchMedia?.("(max-width: 820px) and (orientation: portrait)").matches){
+    const target=Math.max(70,Math.floor(machineSection.clientWidth));
+    machineSection.style.setProperty("--fitted-cabinet-width",target+"px");
+    resizeCanvas();
+    return;
+  }
   const styles=getComputedStyle(machineSection);
   const gap=parseFloat(styles.rowGap)||0;
   const mobileVisible=getComputedStyle(mobilePlaybar).display!=="none";
