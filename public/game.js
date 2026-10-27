@@ -162,6 +162,7 @@ function refresh(){
   el.balance.textContent=save.marbles.toLocaleString("zh-CN");
   $("mobileBalance").textContent=save.marbles.toLocaleString("zh-CN");
   const visibleMultiplier=displayedMultiplier(revealState,round);
+  const litCount=revealState==="revealed"&&round?round.lit.length:0;
   $("mobileStake").textContent=stake.toLocaleString("zh-CN");
   $("stakeAmount").textContent=stake.toLocaleString("zh-CN");
   el.cards.textContent=save.cards;

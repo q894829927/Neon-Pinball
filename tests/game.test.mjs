@@ -557,3 +557,11 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
     assert.ok(html.includes('/games/pinball/'+name+'?v=0.7.3'));
   }
 });
+
+
+test("restored wager HUD defines the actual winning slot count before showing hint",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  assert.match(game,/const litCount=revealState==="revealed"&&round\?round\.lit\.length:0/);
+  assert.match(game,/"×"\+visibleMultiplier\+" 倍 · "\+litCount\+" 个中奖槽，可继续投珠"/);
+});
