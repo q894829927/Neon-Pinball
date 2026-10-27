@@ -127,8 +127,10 @@ const {chromium}=require("playwright");
         });
         console.log("PHONE-CANVAS "+profile.name+" "+JSON.stringify(geometry));
         assert.ok(geometry.canvas.height>180,"Playing field cannot collapse vertically");
-        assert.ok(Math.abs(geometry.canvas.height-geometry.screen.height)<3,"Canvas stretches to fill screen height");
-        assert.ok(Math.abs(geometry.canvas.width-geometry.screen.width)<3,"Canvas stretches to full screen width");
+        // .screen-wrap has a 2px border on each edge: its content box, not
+        // the outer border box, is the actual Canvas painting surface.
+        assert.ok(Math.abs(geometry.canvas.height-geometry.screen.height)<=6,"Canvas fills screen content height");
+        assert.ok(Math.abs(geometry.canvas.width-geometry.screen.width)<=6,"Canvas fills screen content width");
         assert.ok(geometry.powerBottom<=geometry.viewport+2,"Bottom slots and power bar always visible");
       }
       await ctx.close();
