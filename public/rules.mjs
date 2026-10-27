@@ -92,7 +92,7 @@ export function isValidRound(round) {
   return Boolean(round && MULTIPLIERS.includes(round.multiplier) &&
     Array.isArray(round.lit) && round.lit.length === winningSlotCount(round.multiplier) &&
     round.lit.every(n => Number.isInteger(n) && n >= 0 && n < SLOT_COUNT) &&
-    new Set(round.lit).size === LIT_COUNT);
+    new Set(round.lit).size === winningSlotCount(round.multiplier));
 }
 
 export function validBet(value) {

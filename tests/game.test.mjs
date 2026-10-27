@@ -25,7 +25,7 @@ test("each fresh round chooses valid multiplier-specific red slots",()=>{
     const round=createRound(()=>{sample=(sample+.173)%1;return sample;});
     assert.ok(MULTIPLIERS.includes(round.multiplier));
     assert.equal(round.lit.length,winningSlotCount(round.multiplier));
-    assert.equal(new Set(round.lit).size,3);
+    assert.equal(new Set(round.lit).size,winningSlotCount(round.multiplier));
     assert.ok(round.lit.every(x=>x>=0&&x<SLOT_COUNT));
   }
   const zero=createRound(()=>0);
