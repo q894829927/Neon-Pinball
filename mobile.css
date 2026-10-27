@@ -194,3 +194,20 @@ button{min-height:36px}
   .mobile-bets{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
   .mobile-bets .bet-choice{font-size:12px;min-height:44px}
 }
+
+/* v0.5 — five actual lamps stay visible without compressing the playfield. */
+@media(max-width:820px), (pointer:coarse) and (max-height:600px){
+  .machine-lamps{gap:4px;margin:4px 4px 1px;padding:4px;border-radius:7px}
+  .mult-lamp{min-height:clamp(28px,7.5vw,34px);font-size:clamp(12px,3.6vw,16px);border-radius:5px}
+  .marble-hopper{font-size:9px;padding:2px 7px;margin:0 12px 2px auto;min-width:65px}
+  .lamp-status{font-size:8px;max-width:48%;letter-spacing:0}
+  .cabinet-neck span:first-child,.cabinet-neck span:last-child{font-size:6px}
+  .coin-fx-layer{overflow:visible}
+}
+@media(max-width:370px){
+  .machine-lamps{gap:3px;padding:3px;margin:3px 3px 1px}
+  .mult-lamp{min-height:27px;font-size:12px}
+  .cabinet-neck span:first-child,.cabinet-neck span:last-child{display:none}
+  .lamp-status{max-width:100%;width:100%;font-size:9px}
+  .marble-hopper{font-size:8px;min-width:60px}
+}

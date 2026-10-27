@@ -30,7 +30,7 @@
         <h1>星运<span>弹珠局</span><b>✳</b></h1>
         <p class="tagline">蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运。</p>
       </div>
-      <div class="edition"><span>ARCADE</span><b>V 0.4.0</b></div>
+      <div class="edition"><span>ARCADE</span><b>V 0.5.0</b></div>
     </section>
     <main class="machine-layout">
       <section class="side side-left" aria-label="投入和账户">
@@ -80,13 +80,26 @@
             <button type="button" class="bet-choice" data-add="10">+10 颗</button>
           </div>
         </div>
+        <div id="coinFxLayer" class="coin-fx-layer" aria-hidden="true"></div>
         <div class="cabinet">
           <div class="cabinet-top">
             <div class="cabinet-lights"><i></i><i></i><i></i></div>
             <div class="cabinet-logo">✧ STARFALL <span>PINBALL</span> ✧</div>
             <div class="cabinet-lights"><i></i><i></i><i></i></div>
           </div>
-          <div class="cabinet-neck"><span>HIGH VOLTAGE</span><span>★★★</span><span>MARBLE DROP</span></div>
+          <div id="machineLamps" class="machine-lamps" role="group" aria-label="机台顶部随机倍率灯">
+            <span class="mult-lamp" data-mult-lamp="2">2×</span>
+            <span class="mult-lamp" data-mult-lamp="4">4×</span>
+            <span class="mult-lamp" data-mult-lamp="6">6×</span>
+            <span class="mult-lamp" data-mult-lamp="8">8×</span>
+            <span class="mult-lamp" data-mult-lamp="10">10×</span>
+          </div>
+          <div class="cabinet-neck">
+            <span>HIGH VOLTAGE</span>
+            <span id="lampStatus" class="lamp-status" role="status" aria-live="polite">投满5颗开启倍率灯</span>
+            <span>MARBLE DROP</span>
+          </div>
+          <div class="marble-hopper" id="marbleHopper" aria-hidden="true"><span>●</span> 投珠口</div>
           <div class="screen-wrap">
             <canvas id="board" width="420" height="710" role="img" aria-label="弹珠机游戏画面：右侧发射轨道、金属钉和 11 个奖励槽。"></canvas>
             <div id="plungerGrip" class="plunger-grip" aria-label="右下角机械拉杆触控区域" aria-hidden="true"></div>
@@ -148,8 +161,8 @@
     <div class="dialog-top"><span>HOW IT WORKS</span><button type="button" class="close-btn" data-close="infoDialog" aria-label="关闭">×</button></div>
     <h2>弹珠机玩法说明</h2>
     <div class="rules-content">
-      <p><b>① 逐步投珠</b>：点击 +1、+5 或 +10 颗，将虚拟弹珠投入本局，余额立即扣除。累计投入 5 颗时才随机揭晓本局倍率和中奖红灯槽；之后可以继续投注，倍率及红灯槽不变。发射前可退回全部已投弹珠。</p>
-      <p><b>② 抽取奖励</b>：投入满 5 颗时随机产生 2、4、6、8、10 倍倍率，底部 11 个槽位中随机亮起 3 个红灯。每局只抽一次。</p>
+      <p><b>① 逐步投珠</b>：点击 +1、+5 或 +10 颗，将虚拟弹珠投入本局，余额立即扣除。累计投入 5 颗时启动顶部 2×、4×、6×、8×、10× 倍率灯，依次跑灯并逐渐减速，最后停在本局抽中的倍率，中奖红灯槽随之亮起；之后可以继续投注，倍率及红灯槽不变。发射前可退回全部已投弹珠。</p>
+      <p><b>② 抽取奖励</b>：投入满 5 颗时随机确定 2、4、6、8、10 倍之一及底部 11 个槽位中的 3 个红灯槽。灯光先循环，最终停在已确定的倍率，每局只抽一次。</p>
       <p><b>③ 发射钢珠</b>：在机台右侧下方按住金色拉杆向下拖动，拉得越远力度越大，松手后发射。也可按住空格键蓄力、松开发射。钢珠发射后不能再控制方向。同样的力度也有轻微的弹簧和金属钉碰撞误差，因此每次轨迹可能不同。</p>
       <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。</p>
       <p><b>⑤ 奖励卡片</b>：单次中奖奖励 ≥ 50 颗额外获得 1 张卡片，卡片可兑换游戏内虚拟外观。</p>
