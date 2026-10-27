@@ -265,9 +265,10 @@ body{min-height:0!important}
 }
 
 
-/* v0.8.1 - Phone portrait: full-width machine first.
-   Keep the 420x710 playfield's proportions; scroll only when the viewport
-   is shorter than the complete machine + wager HUD. */
+/* v0.8.2 — portrait phone: edge-aligned full-width arcade in ONE viewport.
+   Canvas is intentionally non-uniformly stretched (x/y independently) instead
+   of shrinking the cabinet to preserve a fixed 420:710 physical display ratio.
+   The solver keeps its 420x710 coordinates; hit tests map through both axes. */
 html,body{
   touch-action:manipulation;
   -webkit-text-size-adjust:100%;
@@ -276,44 +277,94 @@ html,body{
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
 }
-/* Plunger gesture must remain fully captured to avoid scrolling while pulling. */
 #board,.plunger-grip{touch-action:none!important}
-@media (max-width:820px) and (orientation:portrait){
+@media(max-width:820px) and (orientation:portrait){
   html,body{
-    height:auto!important;
-    min-height:100%!important;
-    overflow-x:hidden!important;
-    overflow-y:auto!important;
-    overscroll-behavior-y:auto;
+    width:100%!important;
+    height:100%!important;
+    height:100dvh!important;
+    min-height:0!important;
+    overflow:hidden!important;
+    overscroll-behavior:none!important;
   }
   .shell{
-    height:auto!important;
-    min-height:100dvh;
-    overflow:visible!important;
-    grid-template-rows:34px auto 13px!important;
-    align-content:start;
+    width:100%!important;
+    height:100dvh!important;
+    min-height:0!important;
+    max-height:100dvh!important;
+    overflow:hidden!important;
+    grid-template-rows:34px minmax(0,1fr) 13px!important;
+    align-content:stretch!important;
   }
   .machine-layout{
     width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    display:block!important;
     max-width:570px;
-    height:auto!important;
-    min-height:0;
+    overflow:hidden!important;
   }
   .machine-section{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:flex-start!important;
+    align-items:stretch!important;
     width:100%!important;
-    height:auto!important;
+    height:100%!important;
     min-height:0!important;
-    justify-content:flex-start;
-    align-items:stretch;
+    margin:0!important;
+    overflow:hidden!important;
+    gap:3px!important;
   }
-  .mobile-playbar,.cabinet,.launch-console{
+  .mobile-playbar{
     width:100%!important;
     max-width:100%!important;
     box-sizing:border-box!important;
-    margin-left:0!important;
-    margin-right:0!important;
+    flex:0 0 auto!important;
+    margin:0!important;
   }
-  .screen-wrap,.screen-wrap canvas{width:100%!important;max-width:100%!important}
-  .screen-wrap canvas{height:auto!important;aspect-ratio:420/710}
-  .game-version{margin:3px 2px 0 auto}
+  .cabinet{
+    width:100%!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    margin:0!important;
+    flex:1 1 0%!important;
+    height:0!important;
+    min-height:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+  }
+  .cabinet-top,.machine-lamps,.cabinet-neck,.marble-hopper{
+    flex:0 0 auto!important;
+  }
+  .screen-wrap{
+    display:block!important;
+    position:relative!important;
+    width:100%!important;
+    flex:1 1 0%!important;
+    height:0!important;
+    min-height:0!important;
+    box-sizing:border-box!important;
+    overflow:hidden!important;
+  }
+  .screen-wrap canvas{
+    display:block!important;
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    max-width:100%!important;
+    max-height:100%!important;
+    aspect-ratio:auto!important;
+    object-fit:fill!important;
+    touch-action:none!important;
+  }
+  .launch-console{
+    flex:0 0 auto!important;
+    width:100%!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    margin:0!important;
+  }
+  .game-version{margin:0 2px 0 auto!important}
 }

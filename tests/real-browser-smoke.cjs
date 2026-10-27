@@ -116,15 +116,20 @@ const {chromium}=require("playwright");
         assert.ok(Math.abs(layout.machine.left-layout.hud.left)<=3,"Cabinet/HUD left edges must align");
         assert.ok(Math.abs(layout.power.width-layout.hud.width)<=3,"Power bar must match width");
         assert.ok(layout.scrollWidth<=layout.viewportWidth+2,"No horizontal scrolling");
+        assert.ok(layout.scrollHeight<=profile.height+2,"No vertical page scrolling");
         assert.match(layout.touchAction,/manipulation/,"Double-tap zoom disabled on game UI");
         assert.equal(layout.canvasTouchAction,"none","Plunger gestures must work");
-        await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
-        await page.waitForTimeout(120);
-        const bottom=await page.evaluate(()=>({
-          powerBottom:document.querySelector(".launch-console").getBoundingClientRect().bottom,
-          visibleHeight:window.innerHeight,
-        }));
-        assert.ok(bottom.powerBottom<=bottom.visibleHeight+2,"Power bar and bottom slots remain reachable");
+        const geometry=await page.evaluate(()=>{
+          const screen=document.querySelector(".screen-wrap").getBoundingClientRect();
+          const canvas=document.querySelector("#board").getBoundingClientRect();
+          const power=document.querySelector(".launch-console").getBoundingClientRect();
+          return {screen:screen.toJSON(),canvas:canvas.toJSON(),powerBottom:power.bottom,viewport:window.innerHeight};
+        });
+        console.log("PHONE-CANVAS "+profile.name+" "+JSON.stringify(geometry));
+        assert.ok(geometry.canvas.height>180,"Playing field cannot collapse vertically");
+        assert.ok(Math.abs(geometry.canvas.height-geometry.screen.height)<3,"Canvas stretches to fill screen height");
+        assert.ok(Math.abs(geometry.canvas.width-geometry.screen.width)<3,"Canvas stretches to full screen width");
+        assert.ok(geometry.powerBottom<=geometry.viewport+2,"Bottom slots and power bar always visible");
       }
       await ctx.close();
     }
