@@ -19,3 +19,89 @@
   color:#e6bd9f;font-size:11px;text-decoration:underline;text-underline-offset:3px}
 .refund-bet:hover:not(:disabled){color:#ffe1b9}
 .refund-bet:disabled{color:#787285;opacity:.65;text-decoration:none}
+
+/* v0.5 — separate physical multiplier-lamp unit and marble-feed animation. */
+.machine-section{position:relative;isolation:isolate}
+.cabinet{position:relative;z-index:1}
+.machine-lamps{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;
+  margin:7px 7px 2px;padding:7px;
+  border:1px solid #986c65;border-radius:10px;
+  background:linear-gradient(180deg,#292030,#140e22);
+  box-shadow:inset 0 2px 7px #080712b8;
+}
+.mult-lamp{
+  position:relative;min-width:0;min-height:35px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid #776271;border-radius:7px;
+  background:radial-gradient(ellipse at 42% 20%,#57435c,#21192b 75%);
+  color:#9d8b9c;font-weight:800;font-size:clamp(12px,1.4vw,17px);
+  line-height:1;letter-spacing:-.3px;
+  box-shadow:inset 0 1px 3px #0009;
+  transition:background-color 95ms,color 95ms,box-shadow 95ms,transform 95ms;
+}
+.mult-lamp::before{content:"";position:absolute;left:13%;top:10%;height:3px;width:43%;
+  border-radius:50%;background:#ffffff35;transform:rotate(-8deg)}
+.mult-lamp.is-rolling{
+  color:#38212d;border-color:#fff2c8;
+  background:linear-gradient(155deg,#fff7bc,#ffbf65 55%,#f47c58);
+  box-shadow:0 0 11px #ffba70ad,inset 0 1px 2px #fff6d5;
+  transform:scale(1.055);
+}
+.mult-lamp.is-final{
+  color:#352233;border-color:#fff9d8;
+  background:linear-gradient(145deg,#fffce4,#ffd574 50%,#ff8a4f);
+  box-shadow:0 0 17px #ffe19eb8,0 0 27px #ff9e6370,inset 0 1px 3px #fff9e3;
+  animation:lampFinalPulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes lampFinalPulse{
+  from{box-shadow:0 0 9px #ffcf9296,0 0 16px #ff9b4b50}
+  to{box-shadow:0 0 19px #ffe7afdc,0 0 30px #ffa7628c}
+}
+.cabinet-neck{align-items:center;gap:5px}
+.lamp-status{
+  color:#edc48f;font-size:clamp(8px,1vw,10px);
+  font-weight:700;letter-spacing:0;text-align:center;
+  max-width:54%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.marble-hopper{
+  margin:0 17px 3px auto;width:max-content;min-width:76px;padding:3px 8px 3px 7px;
+  border:1px solid #d1a780;border-radius:8px 8px 3px 3px;
+  background:linear-gradient(180deg,#54415b,#211d34);
+  box-shadow:inset 0 1px 3px #ffe4b039;
+  color:#ffe2b0;font-size:10px;font-weight:700;text-align:center;
+}
+.marble-hopper span{font-size:10px;margin-right:3px;color:#ffcc7c}
+.marble-hopper.is-feeding{animation:marbleHopperPulse 420ms ease-out}
+@keyframes marbleHopperPulse{
+  0%{filter:brightness(1);transform:scale(1)}
+  40%{filter:brightness(1.8);transform:scale(1.08)}
+  100%{filter:brightness(1);transform:scale(1)}
+}
+.coin-fx-layer{position:absolute;inset:0;overflow:visible;pointer-events:none;z-index:7}
+.coin-fx{
+  position:absolute;left:0;top:0;width:13px;height:13px;border:1px solid #ffebbc;
+  border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 30% 23%,#fffefa,#fdd390 42%,#ee9157 84%);
+  box-shadow:0 0 10px #ffc881c9;
+  will-change:transform,opacity;
+  animation:coinFlight 690ms cubic-bezier(.23,.72,.28,1) both;
+}
+.coin-fx::after{
+  content:"";position:absolute;inset:3px;border:1px solid #f9b875;border-radius:50%;
+}
+@keyframes coinFlight{
+  0%{transform:translate(0,0) scale(.75);opacity:0}
+  15%{opacity:1}
+  52%{transform:translate(var(--mx),calc(var(--my) - 40px)) scale(1.23);opacity:1}
+  87%{opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(.55);opacity:0}
+}
+.stake-live strong.is-inserting,.mobile-bet-status strong.is-inserting{
+  display:inline-block;animation:stakePop 280ms ease-out}
+@keyframes stakePop{0%{transform:scale(1)}45%{transform:scale(1.22)}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){
+  .coin-fx{display:none}
+  .mult-lamp.is-final,.marble-hopper.is-feeding,.stake-live strong.is-inserting,
+  .mobile-bet-status strong.is-inserting{animation:none}
+}

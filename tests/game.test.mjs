@@ -325,11 +325,73 @@ test("new UI hides multiplier and slot lights until five marbles are funded",asy
   assert.match(html,/id="stakeAmount">0/);
   assert.match(html,/id="mobileStake">0/);
   assert.match(html,/data-refund/);
-  assert.match(game,/round\?\.multiplier\?\?"\?"/);
+  assert.match(game,/displayedMultiplier\(revealState,round\)/);
   assert.match(game,/round&&round\.lit\.includes\(i\)/);
   assert.match(game,/depositMarbles\(save,amount\)/);
   assert.match(game,/refundDeposit\(save\)/);
   assert.match(game,/save=commitShot\(save\)/);
   assert.match(game,/settleFunded\(priorSave,round,shotStake,slot\)/);
   assert.doesNotMatch(html,/data-bet=/);
+});
+
+test("five cabinet lamps run ordered circuits and stop at exactly the preselected multiplier", async()=>{
+  const {buildLampSequence,lampStepDelay,displayedMultiplier,lampVisualIndex}=
+    await import("../public/roulette.mjs");
+  for(const multiplier of MULTIPLIERS){
+    const steps=buildLampSequence(multiplier);
+    const targetIndex=MULTIPLIERS.indexOf(multiplier);
+    assert.equal(steps.length,21+targetIndex);
+    assert.equal(steps.at(-1),targetIndex);
+    assert.deepEqual(steps.slice(0,5),[0,1,2,3,4]);
+    assert.deepEqual(steps.slice(5,10),[0,1,2,3,4]);
+    assert.equal(new Set(steps).size,5);
+    const intervals=steps.map((_,index)=>lampStepDelay(index,steps.length));
+    assert.ok(intervals[0]<intervals.at(-1),"lamp sequence must slow near the chosen multiplier");
+    assert.ok(intervals.every((x,i)=>i===0||x>=intervals[i-1]),"delays cannot speed up again");
+    assert.equal(displayedMultiplier("hidden",{multiplier}),null);
+    assert.equal(displayedMultiplier("rolling",{multiplier}),null);
+    assert.equal(displayedMultiplier("revealed",{multiplier}),multiplier);
+    assert.equal(lampVisualIndex("hidden",{multiplier}),-1);
+    assert.equal(lampVisualIndex("rolling",{multiplier},2),2);
+    assert.equal(lampVisualIndex("revealed",{multiplier}),targetIndex);
+  }
+  assert.throws(()=>buildLampSequence(3));
+  assert.throws(()=>buildLampSequence(2,0));
+});
+
+test("inserted marbles animate and running lamps cannot leak the stored multiplier", async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  const mobile=readFileSync(new URL("../public/mobile.css",import.meta.url),"utf8");
+  const values=[...html.matchAll(/data-mult-lamp="(\d+)"/g)].map(match=>Number(match[1]));
+  assert.deepEqual(values,MULTIPLIERS);
+  assert.ok(html.indexOf('id="machineLamps"')<html.indexOf('id="board"'));
+  assert.match(html,/id="coinFxLayer"/);
+  assert.match(html,/id="marbleHopper"/);
+  assert.match(html,/id="lampStatus"/);
+  assert.match(game,/revealState=round\?"revealed":"hidden"/);
+  assert.match(game,/lampRoll\.steps\[lampRoll\.step\]/);
+  assert.match(game,/startMultiplierRoll\(\)/);
+  assert.match(game,/updateMultiplierRoll\(now\)/);
+  assert.match(game,/if\(!wasRevealed&&round\)startMultiplierRoll\(\)/);
+  assert.match(game,/if\(phase!=="ready"\|\|charging\|\|revealState==="rolling"\)return/);
+  assert.match(game,/revealState!=="revealed"\|\|!canLaunch\(save\)/);
+  assert.match(game,/revealState==="revealed"&&round&&round\.lit\.includes\(i\)/);
+  assert.match(game,/playMarbleInsertFx\(amount,event\.currentTarget\)/);
+  assert.match(game,/marble\.addEventListener\("animationend",\(\)=>marble\.remove\(\),\{once:true\}\)/);
+  assert.match(css,/@keyframes coinFlight/);
+  assert.match(css,/@keyframes lampFinalPulse/);
+  assert.match(css,/prefers-reduced-motion:reduce/);
+  assert.match(mobile,/\.machine-lamps\{/);
+});
+
+test("refunding, resetting and next round cancel the old rolling lamp selection",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const occurrences=(game.match(/lampRoll=\{steps:\[\],step:-1,nextAt:0\}/g)||[]).length;
+  assert.ok(occurrences>=3,"new round, refund and reset must clear the animation");
+  assert.match(game,/revealState==="rolling"\?"● 抽取中"/);
+  assert.match(game,/const visibleMultiplier=displayedMultiplier\(revealState,round\)/);
 });
