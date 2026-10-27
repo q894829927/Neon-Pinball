@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0b0c1d">
-  <meta name="description" content="一枚钢珠，一次弹射。蓄力、碰撞、落槽，体验电玩城倍率弹珠机。">
+  <meta name="description" content="单人街机倍率弹珠机">
   <title>星运弹珠局 · Neon Pinball</title>
   <link rel="stylesheet" href="/games/pinball/style.css">
   <link rel="stylesheet" href="/games/pinball/mobile.css">
+  <link rel="stylesheet" href="/games/pinball/fullscreen.css">
   <script type="module" src="/games/pinball/game.js"></script>
 </head>
 <body>
@@ -16,97 +17,66 @@
   <div class="shell">
     <header class="topbar">
       <a class="brand" href="/" aria-label="返回游戏大厅">
-        <span class="brand-icon">✦</span><span class="brand-words">ARCADE<span class="dot">.</span><small>PIXEL STATION / 001</small></span>
+        <span class="brand-icon">✦</span>
+        <span class="brand-words">ARCADE<span class="dot">.</span></span>
       </a>
       <div class="header-actions">
-        <span class="mode-pill"><span class="status-led"></span> SINGLE PLAYER</span>
+        <button class="shop-shortcut" id="giftBtn" type="button" aria-label="打开奖励卡商店">★ <strong id="cards">0</strong> <span>兑换</span></button>
         <button class="icon-button" id="soundBtn" type="button" aria-label="切换声音" aria-pressed="false" title="音效">♫</button>
         <button class="icon-button" id="helpBtn" type="button" aria-label="查看规则" title="规则">?</button>
       </div>
     </header>
-    <div class="overline"><span class="overline-line"></span> INSERT YOUR LUCK <span class="overline-line"></span></div>
-    <section class="heading" aria-label="游戏名称">
-      <div><p class="eyebrow">NEON MARBLE MACHINE — 01</p>
-        <h1>星运<span>弹珠局</span><b>✳</b></h1>
-        <p class="tagline">蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运。</p>
-      </div>
-      <div class="edition"><span>ARCADE</span><b>V 0.6.1</b></div>
-    </section>
-    <main class="machine-layout">
-      <section class="side side-left" aria-label="投入和账户">
+    <main class="machine-layout" aria-label="星运弹珠局游戏界面">
+      <section class="side side-left" aria-label="余额和投珠操作">
         <div class="panel wallet-panel">
-          <div class="panel-header"><span>01 / YOUR WALLET</span><span class="small-star">✧</span></div>
-          <div class="label">我的弹珠</div>
+          <div class="wallet-heading">弹珠余额</div>
           <div class="wallet-value"><span class="coin">●</span><strong id="balance">100</strong><span class="unit">颗</span></div>
-          <div class="meter-row"><span>累计局数 <b id="rounds">0</b></span><span>中奖次数 <b id="wins">0</b></span></div>
-          <div class="thin-rule"></div>
-          <div class="field-head"><span>投珠</span><span>INSERT MARBLES</span></div>
-          <div class="stake-live" aria-live="polite">本局已投 <strong id="stakeAmount">0</strong> <span>颗</span></div>
+          <div class="wager-divider"></div>
+          <div class="stake-live" aria-live="polite">本局已投 <strong id="stakeAmount">0</strong><span>颗</span></div>
+          <div class="field-head"><span>投入弹珠</span><span>至少 5 颗</span></div>
           <div class="bet-grid" role="group" aria-label="逐步投入弹珠">
             <button type="button" class="bet-choice" data-add="1">+1 <span>颗</span></button>
             <button type="button" class="bet-choice" data-add="5">+5 <span>颗</span></button>
             <button type="button" class="bet-choice" data-add="10">+10 <span>颗</span></button>
           </div>
-          <p class="hint" id="betHint">累计投入 5 颗后，揭晓本局倍率。</p>
-          <button type="button" class="refund-bet" data-refund disabled>↶ 退回已投弹珠</button>
-        </div>
-        <div class="panel multiplier-panel">
-          <div class="panel-header"><span>02 / THIS ROUND</span><span class="live-dot" id="roundLight">● 待投珠</span></div>
-          <p class="muted-caption" id="multiplierCaption">累计投满 5 颗后揭晓倍率</p>
-          <div class="mult-display"><span>×</span><strong id="multiplier">?</strong><span class="mult-caption">倍</span></div>
-          <div class="rate-strip" aria-label="倍率越大中奖槽越少"><span>2×<small>4槽</small></span><span>4×<small>3槽</small></span><span>6×<small>2槽</small></span><span>8×<small>1槽</small></span><span>10×<small>1槽</small></span></div>
-          <div class="chance-info">
-            <div class="chance-header"><span>本局中奖入口</span><strong><span id="winSlotCount">—</span><small> / 11 槽</small></strong></div>
-            <div class="slot-preview" id="slotPreview" aria-label="底部11个槽位的红灯分布">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            </div>
-            <div class="chance-caption">高倍率 · 少入口 · 高挑战</div>
+          <div class="wager-bottom">
+            <span class="wager-hint" id="betHint">还差 5 颗开启倍率灯</span>
+            <button type="button" class="refund-bet" data-refund disabled>退回</button>
           </div>
-          <div class="thin-rule"></div>
-          <div class="payout-row"><span>命中红灯可得</span><strong><span id="possiblePayout">—</span><small>颗</small></strong></div>
-          <p class="hint">投满 5 颗后跑灯揭晓倍率和红灯位置；追加投入不改变结果。</p>
+          <div class="wager-help">↧ 下拉右侧金色拉杆发射</div>
         </div>
-        <div class="tip-card"><span class="tip-icon">↘</span><div><strong>下拉机械拉杆发射</strong><p>在机台右下角抓住金色拉杆，向下拉得越远，钢珠发射越有力。</p></div></div>
       </section>
-
       <section class="machine-section" aria-label="弹珠台">
-        <div class="mobile-playbar" aria-label="移动端快速操作">
+        <div class="mobile-playbar" aria-label="移动端投珠操作">
           <div class="mobile-stats">
-            <div class="mobile-stat"><span>弹珠余额</span><strong><i class="mini-coin" aria-hidden="true">●</i> <span id="mobileBalance">100</span></strong></div>
-            <div class="mobile-stat"><span>本局倍率</span><strong class="mobile-mult">×<span id="mobileMultiplier">?</span></strong></div>
-            <div class="mobile-stat"><span>奖励卡</span><strong>✦ <span id="mobileCards">0</span></strong></div>
+            <div class="mobile-stat"><span>余额</span><strong><i class="mini-coin" aria-hidden="true">●</i> <span id="mobileBalance">100</span></strong></div>
+            <div class="mobile-stat"><span>本局已投</span><strong><span id="mobileStake">0</span> <small>颗</small></strong></div>
           </div>
-          <div class="mobile-bet-status" aria-live="polite">
-            <span>本局已投 <strong id="mobileStake">0</strong> 颗</span>
-            <span class="mobile-bet-hint" id="mobileBetHint">再投 5 颗揭晓倍率</span>
-            <button type="button" class="mobile-refund" data-refund disabled>退回</button>
-          </div>
-          <div class="mobile-odds"><span>倍率越高，红灯入口越少</span><strong>中奖槽 <b id="mobileWinSlots">—</b> / 11</strong></div>
           <div class="mobile-bets" role="group" aria-label="移动端逐步投入弹珠">
-            <button type="button" class="bet-choice" data-add="1">+1 颗</button>
-            <button type="button" class="bet-choice" data-add="5">+5 颗</button>
-            <button type="button" class="bet-choice" data-add="10">+10 颗</button>
+            <button type="button" class="bet-choice" data-add="1">+1</button>
+            <button type="button" class="bet-choice" data-add="5">+5</button>
+            <button type="button" class="bet-choice" data-add="10">+10</button>
+          </div>
+          <div class="mobile-stake-line">
+            <span id="mobileBetHint">还差 5 颗开启倍率灯</span>
+            <button type="button" class="mobile-refund" data-refund disabled>退回</button>
           </div>
         </div>
         <div id="coinFxLayer" class="coin-fx-layer" aria-hidden="true"></div>
         <div class="cabinet">
           <div class="cabinet-top">
             <div class="cabinet-lights"><i></i><i></i><i></i></div>
-            <div class="cabinet-logo"><small class="marquee-eyebrow">THE LUCKY ARCADE</small>✧ STARFALL <span>PINBALL</span> ✧</div>
+            <div class="cabinet-logo">✧ STARFALL <span>PINBALL</span> ✧</div>
             <div class="cabinet-lights"><i></i><i></i><i></i></div>
           </div>
-          <div id="machineLamps" class="machine-lamps" role="group" aria-label="机台顶部随机倍率灯">
-            <span class="mult-lamp" data-mult-lamp="2"><b>2×</b><small>4 个中奖槽</small></span>
-            <span class="mult-lamp" data-mult-lamp="4"><b>4×</b><small>3 个中奖槽</small></span>
-            <span class="mult-lamp" data-mult-lamp="6"><b>6×</b><small>2 个中奖槽</small></span>
-            <span class="mult-lamp" data-mult-lamp="8"><b>8×</b><small>1 个中奖槽</small></span>
-            <span class="mult-lamp" data-mult-lamp="10"><b>10×</b><small>1 个中奖槽</small></span>
+          <div id="machineLamps" class="machine-lamps" role="group" aria-label="机台顶部倍率灯">
+            <span class="mult-lamp" data-mult-lamp="2"><b>2×</b><small>4 槽</small></span>
+            <span class="mult-lamp" data-mult-lamp="4"><b>4×</b><small>3 槽</small></span>
+            <span class="mult-lamp" data-mult-lamp="6"><b>6×</b><small>2 槽</small></span>
+            <span class="mult-lamp" data-mult-lamp="8"><b>8×</b><small>1 槽</small></span>
+            <span class="mult-lamp" data-mult-lamp="10"><b>10×</b><small>1 槽</small></span>
           </div>
-          <div class="cabinet-neck">
-            <span>HIGH VOLTAGE</span>
-            <span id="lampStatus" class="lamp-status" role="status" aria-live="polite">投满5颗开启倍率灯</span>
-            <span>MARBLE DROP</span>
-          </div>
+          <div class="cabinet-neck"><span id="lampStatus" class="lamp-status" role="status" aria-live="polite">投满5颗开启倍率灯</span></div>
           <div class="marble-hopper" id="marbleHopper" aria-hidden="true"><span>●</span> 投珠口</div>
           <div class="screen-wrap">
             <canvas id="board" width="420" height="710" role="img" aria-label="弹珠机游戏画面：右侧发射轨道、金属钉和 11 个奖励槽。"></canvas>
@@ -123,46 +93,14 @@
               </div>
             </div>
           </div>
-          <div class="cabinet-bottom"><span>✦</span><span>CHROME / CHANCE / JACKPOT</span><span>✦</span></div>
         </div>
         <div class="launch-console">
-          <div class="charge-info"><div class="charge-head"><span><i class="blink-led"></i> <b id="launchStatus">等待发射</b></span><span id="powerPct">0%</span></div>
-            <div class="power-track"><div id="powerFill"></div><span class="power-lines"></span></div>
-            <div class="power-label"><span>POWER / 蓄力条</span><span>MAX 100%</span></div>
-          </div>
-          <p class="plunger-instruction"><span aria-hidden="true">↧</span> 拖动机台右下角的金色拉杆，松手发射</p>
+          <div class="charge-head"><span><i class="blink-led"></i><b id="launchStatus">等待投珠</b></span><span id="powerPct">0%</span></div>
+          <div class="power-track"><div id="powerFill"></div><span class="power-lines"></span></div>
         </div>
-        <div class="keyboard-note">手机用手指沿右下角的金色拉杆向下拖动后松开 · 电脑可按住 <kbd>SPACE</kbd> 蓄力</div>
       </section>
-
-      <aside class="side side-right" aria-label="奖品和记录">
-        <div class="panel prize-panel">
-          <div class="panel-header"><span>03 / REWARD VAULT</span><span>✧</span></div>
-          <div class="reward-top">
-            <div class="ticket-icon"><span>★</span></div>
-            <div><div class="label">奖励卡片</div><strong><span id="cards">0</span><small> 张</small></strong></div>
-          </div>
-          <div class="promo"><strong>一次中奖 ≥ 50 颗</strong><span>额外获得奖励卡 × 1</span></div>
-          <button class="outline-button" id="giftBtn" type="button">打开兑换商店 <span>↗</span></button>
-        </div>
-        <div class="panel records-panel">
-          <div class="panel-header"><span>04 / YOUR RECORD</span><span>✦</span></div>
-          <div class="stat"><span>单局最高奖励</span><strong><span id="best">0</span><small>颗</small></strong></div>
-          <div class="thin-rule"></div>
-          <div class="stat"><span>累计赢取</span><strong><span id="earned">0</span><small>颗</small></strong></div>
-          <div class="thin-rule"></div>
-          <div class="stat"><span>当前奖励灯光</span><strong class="theme-name" id="themeName">经典霓虹</strong></div>
-        </div>
-        <div class="rules-summary">
-          <div class="rules-badge">HOW TO PLAY</div>
-          <div class="rule-step"><span>01</span><p>投满 5 颗揭晓倍率，可继续投珠</p></div>
-          <div class="rule-step"><span>02</span><p>下拉右侧机械拉杆，松开发射</p></div>
-          <div class="rule-step"><span>03</span><p>撞击钉阵，落入红灯槽得奖</p></div>
-          <button type="button" class="text-button" id="howToBtn">查看完整规则 ↗</button>
-        </div>
-      </aside>
     </main>
-    <footer><span>© STARFALL ARCADE · JUST FOR FUN</span><span>纯虚拟游戏 · 无现金兑换 · 存档仅在本机</span></footer>
+    <div class="game-version" aria-label="游戏版本">v0.7.0</div>
   </div>
 
   <dialog id="infoDialog" class="modal">

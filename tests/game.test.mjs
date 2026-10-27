@@ -157,7 +157,7 @@ test("mobile first-play layout includes visible stats and stake controls before 
   const bar=html.indexOf('class="mobile-playbar"');
   const cabinet=html.indexOf('class="cabinet"');
   assert.ok(bar>=0&&bar<cabinet,"Mobile betting and balance are above board");
-  for(const id of ["mobileBalance","mobileMultiplier","mobileCards","plungerGrip"]){
+  for(const id of ["mobileBalance","mobileStake","plungerGrip"]){
     assert.match(html,new RegExp('id="'+id+'"'));
   }
   for(const amount of [1,5,10]){
@@ -165,8 +165,8 @@ test("mobile first-play layout includes visible stats and stake controls before 
   }
   assert.doesNotMatch(html,/data-bet=/);
   assert.match(script,/"mobileBalance"/);
-  assert.match(script,/"mobileMultiplier"/);
-  assert.match(script,/"mobileCards"/);
+  assert.match(script,/"mobileStake"/);
+  assert.doesNotMatch(script,/"mobileMultiplier"|"mobileCards"/);
   assert.match(script,/for\(const surface of \[canvas,plungerGrip\]\)/);
   assert.match(mobile,/min-height:43px/);
   assert.match(mobile,/width:clamp\(44px/);
@@ -320,8 +320,8 @@ test("new UI hides multiplier and slot lights until five marbles are funded",asy
   const {readFileSync}=await import("node:fs");
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
-  assert.match(html,/id="multiplier">\?</);
-  assert.match(html,/id="mobileMultiplier">\?</);
+  assert.doesNotMatch(html,/id="multiplier"|id="mobileMultiplier"|class="multiplier-panel"/);
+  assert.match(html,/id="machineLamps"/);
   assert.match(html,/id="stakeAmount">0/);
   assert.match(html,/id="mobileStake">0/);
   assert.match(html,/data-refund/);
@@ -457,15 +457,14 @@ test("UI previews match the real winning slots instead of fixed 3 red slots",asy
   const mobile=readFileSync(new URL("../public/mobile.css",import.meta.url),"utf8");
   for(const [multiplier,count] of [[2,4],[4,3],[6,2],[8,1],[10,1]]){
     assert.match(html,new RegExp('data-mult-lamp="'+multiplier+'"'));
-    assert.ok(html.includes(count+" 个中奖槽"));
+    assert.ok(html.includes('<small>'+count+' 槽</small>'));
   }
-  assert.match(html,/id="winSlotCount"/);
-  assert.match(html,/id="mobileWinSlots"/);
-  assert.match(html,/id="slotPreview"/);
-  assert.match(game,/visibleRound\.lit\.includes\(index\)/);
+  assert.doesNotMatch(html,/id="winSlotCount"|id="mobileWinSlots"|id="slotPreview"/);
+  assert.doesNotMatch(game,/visibleRound\.lit\.includes\(index\)/);
   assert.match(game,/round\.lit\.length\+"\/11"/);
   assert.match(game,/revealState==="revealed"&&round&&round\.lit\.includes\(i\)/);
-  assert.match(css,/\.slot-preview i\.is-winning/);
+  assert.match(html,/data-mult-lamp="10"/);
+  assert.match(css,/\.mult-lamp\.is-final/);
   assert.match(css,/\.mult-lamp b/);
   assert.match(mobile,/\.mobile-odds/);
 });
@@ -510,4 +509,36 @@ test("drawing and collisions use the identical computed grid, without old detach
   assert.match(game,/for\(const b of bumpers\)/);
   assert.doesNotMatch(game,/x:60,y:348|x:324,y:388|x:203,y:452/);
   assert.match(source,/selected\.has\(row\+"\,"\+col\)/);
+});
+
+
+test("fullscreen layout removes redundant panels, slogan and page footer without losing game controls",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
+  assert.match(html,/\/games\/pinball\/fullscreen\.css/);
+  assert.match(html,/class="game-version"[^>]*>v0\.7\.0/);
+  for(const text of [
+    "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
+    "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
+    "02 / THIS ROUND","命中红灯可得","高倍率 · 少入口 · 高挑战",
+    "单局最高奖励","累计赢取","HOW TO PLAY",'id="roundLight"',
+  ]) assert.ok(!html.includes(text),"Removed obsolete page content: "+text);
+  for(const id of ["balance","stakeAmount","mobileStake","giftBtn","cards",
+    "mobileBalance","mobileBetHint","betHint","launchStatus","powerFill",
+    "powerPct","board","plungerGrip","helpBtn","soundBtn","shopDialog","infoDialog"]){
+    assert.ok(html.includes('id="'+id+'"'),"Essential controls remain: "+id);
+  }
+  assert.equal((html.match(/data-add=/g)||[]).length,6);
+  assert.equal((html.match(/data-refund/g)||[]).length,2);
+  assert.match(css,/height:100dvh/);
+  assert.match(css,/overflow:hidden!important/);
+  assert.match(css,/grid-template-rows:minmax\(0,1fr\)/);
+  assert.match(css,/env\(safe-area-inset-bottom\)/);
+  assert.match(js,/function fitMachine\(\)/);
+  assert.match(js,/cabinet\.getBoundingClientRect\(\)\.height>usableHeight/);
+  assert.match(js,/machineSection\.style\.setProperty\("--fitted-cabinet-width"/);
+  assert.match(js,/window\.visualViewport\?\.addEventListener\("resize",scheduleMachineFit\)/);
+  assert.doesNotMatch(js,/el\.multiplier|el\.payout|el\.rounds|el\.wins|el\.best|el\.earned|el\.themeName/);
 });
