@@ -10,11 +10,11 @@ const signed = rng => {
 };
 
 export const VARIATION = Object.freeze({
-  laneSpeed: 0.035,    // +/- 3.5% on spring release
-  entrySpeed: 0.035,   // +/- 3.5% entering the field
-  entryAngle: 0.095,  // +/- 5.4 degrees
-  maxPegImpulse: 16,  // px/s, tangential to actual collision
-  pegImpulseRatio: 0.05,
+  laneSpeed: 0.012,    // +/- 1.2% from spring travel imperfections
+  entrySpeed: 0.012,   // +/- 1.2% after rail contact
+  entryAngle: 0.015,  // +/- 0.86 degrees at the rail tip
+  maxPegImpulse: 3.5,  // px/s, limited tangential contact error
+  pegImpulseRatio: 0.007,
 });
 
 export function randomLaunch(rng = Math.random) {
@@ -22,7 +22,7 @@ export function randomLaunch(rng = Math.random) {
     laneScale: 1 + signed(rng) * VARIATION.laneSpeed,
     entryScale: 1 + signed(rng) * VARIATION.entrySpeed,
     angle: signed(rng) * VARIATION.entryAngle,
-    spin: signed(rng) * 2.4,
+    spin: signed(rng) * 0.15,
   };
 }
 
