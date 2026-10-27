@@ -392,7 +392,7 @@ test("refunding, resetting and next round cancel the old rolling lamp selection"
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const occurrences=(game.match(/lampRoll=\{steps:\[\],step:-1,nextAt:0\}/g)||[]).length;
   assert.ok(occurrences>=3,"new round, refund and reset must clear the animation");
-  assert.match(game,/revealState==="rolling"\?"● 抽取中"/);
+  assert.match(game,/revealState==="rolling"\?"倍率抽取中…"/);
   assert.match(game,/const visibleMultiplier=displayedMultiplier\(revealState,round\)/);
 });
 
