@@ -8,3 +8,14 @@
 .screen-wrap canvas{image-rendering:auto;touch-action:none;user-select:none;-webkit-user-select:none}
 .keyboard-note b{color:#f1cb94;font-weight:600}
 @media(max-width:760px){.plunger-instruction{font-size:11px;padding:10px 7px}.keyboard-note{font-size:10px;line-height:1.8}}
+
+/* v0.4.0 — incremental marble insertion and stake summary */
+.stake-live{display:flex;align-items:baseline;gap:7px;margin:0 0 13px;color:#d8c6b9;font-size:12px}
+.stake-live strong{font-size:32px;line-height:1;font-variant-numeric:tabular-nums;color:#ffd58c}
+.stake-live>span{font-size:11px;color:#ada6b1}
+.bet-grid .bet-choice{min-height:45px;white-space:nowrap;padding:9px 3px}
+.bet-grid .bet-choice span{font-size:11px;color:inherit;margin:0}
+.refund-bet{display:block;margin:12px 0 0;padding:7px 2px;border:0;background:none;
+  color:#e6bd9f;font-size:11px;text-decoration:underline;text-underline-offset:3px}
+.refund-bet:hover:not(:disabled){color:#ffe1b9}
+.refund-bet:disabled{color:#787285;opacity:.65;text-decoration:none}
