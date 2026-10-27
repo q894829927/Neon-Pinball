@@ -518,7 +518,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.7\.2/);
+  assert.match(html,/class="game-version"[^>]*>v0\.7\.3/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -541,4 +541,19 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   assert.match(js,/machineSection\.style\.setProperty\("--fitted-cabinet-width"/);
   assert.match(js,/window\.visualViewport\?\.addEventListener\("resize",scheduleMachineFit\)/);
   assert.doesNotMatch(js,/el\.multiplier|el\.payout|el\.rounds|el\.wins|el\.best|el\.earned|el\.themeName/);
+});
+
+
+test("desktop software-backed Canvas and cache-busted browser modules",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  assert.match(js,/willReadFrequently:desktopPointer/);
+  assert.match(js,/hover: hover/);
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs"]){
+    assert.ok(js.includes('"./'+name+'?v=0.7.3"'),"Versioned import: "+name);
+  }
+  for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.7.3'));
+  }
 });

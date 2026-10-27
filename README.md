@@ -103,3 +103,10 @@ bash scripts/install-managed-static-ecs.sh --slug pinball --repo q894829927/Neon
 - 以真实 Chromium + Playwright 检查桌面、手机竖屏、320px 小屏和横屏：读取 Canvas 实际像素、监视 JS 异常、模拟投珠，并验证页面不意外滚动。未通过则阻止 `site` 发布。
 - 静态脚本和 CSS 增加 `?v=0.7.2` URL 版本参数，防止浏览器沿用改动之前的缓存资源；右下角显示 v0.7.2。
 - 维护真实浏览器测试，覆盖 JS 初始化及 Canvas 实际绘制，避免出现黑色画布但模拟测试通过。
+
+## v0.7.3 — 桌面浏览器黑屏兼容性
+
+- 针对电脑 Chrome/Edge 的 Canvas 2D GPU 驱动兼容问题，在桌面精确指针设备启用 `willReadFrequently`，请求 Chromium 使用软件支持的 2D 绘制路径；手机触控端保持原来画法。
+- 静态入口脚本、CSS 和 ESM 子模块均加入 v0.7.3 缓存版本，避免电脑和手机分别使用不同世代的资源。
+- GitHub Actions 的真实 Chromium 检查除普通桌面/手机外，新增 Windows 类似缩放的 1.25 DPR 桌面档，以及模拟电脑已有余额 1034、已投入 16、8 倍已揭晓的存档；强制检查首枚金属钉像素必须明亮、投珠可以正常继续进行。
+- 不改动余额、抽倍率、中奖槽、碰撞和发奖规则，也不更改其它游戏。

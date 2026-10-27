@@ -1,18 +1,26 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs";
-import {randomLaunch, varyLaunchVelocity, varyPegRebound} from "./physics-variation.mjs";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs";
-import {createPegLayout} from "./board-layout.mjs";
+} from "./rules.mjs?v=0.7.3";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.7.3";
+import {randomLaunch, varyLaunchVelocity, varyPegRebound} from "./physics-variation.mjs?v=0.7.3";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.7.3";
+import {createPegLayout} from "./board-layout.mjs?v=0.7.3";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
 const SLOT_W=(SLOT_RIGHT-SLOT_LEFT)/SLOT_COUNT;
 const R=7.1,GRAVITY=1060,STEP=1/180;
 const $=id=>document.getElementById(id);
-const canvas=$("board"),ctx=canvas.getContext("2d",{alpha:false});
+// Some desktop Chromium/Edge GPU drivers can leave 2D Canvas surfaces black
+// even while JavaScript and the UI remain healthy. Prefer a CPU-backed 2D
+// surface for mouse/keyboard desktops; touch devices retain the normal path.
+const desktopPointer=window.matchMedia?.("(hover: hover) and (pointer: fine)").matches??false;
+const canvas=$("board"),ctx=canvas.getContext("2d",{
+  alpha:false,
+  willReadFrequently:desktopPointer,
+});
+if(!ctx)throw new Error("无法创建弹珠台 Canvas 2D 画布");
 const plungerGrip=$("plungerGrip");
 const multiplierLamps=[...document.querySelectorAll("[data-mult-lamp]")];
 const coinFxLayer=$("coinFxLayer"), marbleHopper=$("marbleHopper");
