@@ -16,7 +16,7 @@ test("game begins with exactly 100 virtual marbles",()=>{
   assert.equal(save.pendingRound,null);
   assert.deepEqual(MULTIPLIERS,[2,4,6,8,10]);
   assert.equal(SLOT_COUNT,11);
-  assert.deepEqual(MULTIPLIERS.map(winningSlotCount),[5,4,3,2,1]);
+  assert.deepEqual(MULTIPLIERS.map(winningSlotCount),[4,3,2,1,1]);
 });
 
 test("each fresh round chooses valid multiplier-specific red slots",()=>{
@@ -34,7 +34,7 @@ test("each fresh round chooses valid multiplier-specific red slots",()=>{
 
 test("win: 100 - 10 + 10 * 6 = 150",()=>{
   const save=freshSave();
-  const r=settle(save,{multiplier:6,lit:[2,4,7]},10,4);
+  const r=settle(save,{multiplier:6,lit:[2,4]},10,4);
   assert.equal(r.hit,true);
   assert.equal(r.reward,60);
   assert.equal(r.save.marbles,150);
@@ -45,7 +45,7 @@ test("win: 100 - 10 + 10 * 6 = 150",()=>{
 });
 
 test("lose: 100 - 10 = 90, with no card",()=>{
-  const r=settle(freshSave(),{multiplier:6,lit:[2,4,7]},10,1);
+  const r=settle(freshSave(),{multiplier:6,lit:[2,4]},10,1);
   assert.equal(r.hit,false);
   assert.equal(r.reward,0);
   assert.equal(r.save.marbles,90);
@@ -53,10 +53,10 @@ test("lose: 100 - 10 = 90, with no card",()=>{
 });
 
 test("card threshold depends on ONE shot winning 50+ marbles",()=>{
-  const a=settle(freshSave(),{multiplier:4,lit:[2,4,7,9]},10,4);
+  const a=settle(freshSave(),{multiplier:4,lit:[2,4,7]},10,4);
   assert.equal(a.reward,40);
   assert.equal(a.newCards,0);
-  const b=settle(a.save,{multiplier:2,lit:[1,2,4,7,9]},50,4);
+  const b=settle(a.save,{multiplier:2,lit:[1,2,4,7]},50,4);
   assert.equal(b.reward,100);
   assert.equal(b.newCards,1);
   const c=settle(b.save,{multiplier:10,lit:[4]},50,1);
@@ -72,14 +72,14 @@ test("invalid stakes, lack of marbles and invalid slot cannot settle",()=>{
   assert.equal(canAfford(s,4),false);
   assert.equal(canAfford(s,0),false);
   assert.equal(canAfford({...s,marbles:9},10),false);
-  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4,7]},4,2));
-  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4,7]},10,-1));
+  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4]},4,2));
+  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4]},10,-1));
   assert.throws(()=>settle(s,{multiplier:6,lit:[2,2,7]},10,2));
   assert.throws(()=>settle(s,{multiplier:99,lit:[2,4,7]},10,2));
 });
 
 test("redeem cards for local, virtual themes only",()=>{
-  const winner=settle(freshSave(),{multiplier:6,lit:[2,4,7]},10,4);
+  const winner=settle(freshSave(),{multiplier:6,lit:[2,4]},10,4);
   const next=redeem(winner.save,"sunset");
   assert.equal(next.cards,0);
   assert.ok(next.redeemed.includes("sunset"));
@@ -251,7 +251,7 @@ test("five inserted marbles reveal multiplier once, later deposits retain it",()
   assert.equal(save.pendingStake,5);
   assert.equal(save.marbles,95);
   assert.equal(save.pendingRound.multiplier,6);
-  assert.equal(save.pendingRound.lit.length,3);
+  assert.equal(save.pendingRound.lit.length,winningSlotCount(6));
   assert.equal(canLaunch(save),true);
   const revealed=JSON.stringify(save.pendingRound);
   const count=randomCalls;
@@ -398,10 +398,11 @@ test("refunding, resetting and next round cancel the old rolling lamp selection"
 
 
 test("higher payout always has fewer independently selected winning slots",()=>{
-  assert.deepEqual(WIN_SLOTS_BY_MULTIPLIER, {2:5,4:4,6:3,8:2,10:1});
+  assert.deepEqual(WIN_SLOTS_BY_MULTIPLIER, {2:4,4:3,6:2,8:1,10:1});
   assert.equal(SLOT_COUNT,11);
   for(let i=1;i<MULTIPLIERS.length;i++){
-    assert.ok(winningSlotCount(MULTIPLIERS[i])<winningSlotCount(MULTIPLIERS[i-1]));
+    assert.ok(winningSlotCount(MULTIPLIERS[i])<=winningSlotCount(MULTIPLIERS[i-1]));
+    if(MULTIPLIERS[i]<10)assert.ok(winningSlotCount(MULTIPLIERS[i])<winningSlotCount(MULTIPLIERS[i-1]));
   }
   assert.throws(()=>winningSlotCount(12));
   for(const multiplier of MULTIPLIERS){
@@ -454,7 +455,7 @@ test("UI previews match the real winning slots instead of fixed 3 red slots",asy
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
   const mobile=readFileSync(new URL("../public/mobile.css",import.meta.url),"utf8");
-  for(const [multiplier,count] of [[2,5],[4,4],[6,3],[8,2],[10,1]]){
+  for(const [multiplier,count] of [[2,4],[4,3],[6,2],[8,1],[10,1]]){
     assert.match(html,new RegExp('data-mult-lamp="'+multiplier+'"'));
     assert.ok(html.includes(count+" 个中奖槽"));
   }
@@ -467,4 +468,46 @@ test("UI previews match the real winning slots instead of fixed 3 red slots",asy
   assert.match(css,/\.slot-preview i\.is-winning/);
   assert.match(css,/\.mult-lamp b/);
   assert.match(mobile,/\.mobile-odds/);
+});
+
+
+test("bumpers replace exactly three peg grid cells instead of floating among pins",async()=>{
+  const {createPegLayout,pegPosition,PEG_GRID,BUMPER_CELLS}=
+    await import("../public/board-layout.mjs");
+  const {pegs,bumpers}=createPegLayout(368);
+  assert.equal(PEG_GRID.rows,10);
+  assert.equal(PEG_GRID.columns,8);
+  assert.deepEqual(BUMPER_CELLS.map(p=>[p.row,p.col]),[[3,2],[5,5],[7,3]]);
+  assert.equal(pegs.length+bumpers.length,80);
+  assert.equal(bumpers.length,3);
+  assert.equal(pegs.length,77);
+  const keyed=new Set();
+  for(const p of [...pegs,...bumpers]){
+    assert.deepEqual({x:p.x,y:p.y},pegPosition(p.row,p.col));
+    const key=p.row+","+p.col;
+    assert.ok(!keyed.has(key),"No grid cell can contain both a metal peg and a bumper");
+    keyed.add(key);
+  }
+  for(const bumper of bumpers){
+    assert.ok(bumper.r>PEG_GRID.pegRadius);
+    for(const peg of pegs){
+      assert.ok(Math.hypot(bumper.x-peg.x,bumper.y-peg.y)>bumper.r+peg.r,
+        "Large bumper must not overlap any of the remaining metal pegs");
+    }
+  }
+  assert.throws(()=>pegPosition(-1,3));
+  assert.throws(()=>pegPosition(1,8));
+});
+
+test("drawing and collisions use the identical computed grid, without old detached bumpers",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const source=readFileSync(new URL("../public/board-layout.mjs",import.meta.url),"utf8");
+  assert.match(game,/const \{pegs,bumpers\}=createPegLayout\(RIGHT\)/);
+  assert.match(game,/for\(const p of pegs\)bump\(p\.x,p\.y,p\.r\)/);
+  assert.match(game,/for\(const p of bumpers\)if\(bump\(p\.x,p\.y,p\.r,\.92\)/);
+  assert.match(game,/for\(const peg of pegs\)/);
+  assert.match(game,/for\(const b of bumpers\)/);
+  assert.doesNotMatch(game,/x:60,y:348|x:324,y:388|x:203,y:452/);
+  assert.match(source,/selected\.has\(row\+"\,"\+col\)/);
 });
