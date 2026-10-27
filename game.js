@@ -1,12 +1,12 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.8.2";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.8.2";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.8.2";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.8.2";
-import {createPegLayout} from "./board-layout.mjs?v=0.8.2";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.8.2";
+} from "./rules.mjs?v=0.8.3";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.8.3";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.8.3";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.8.3";
+import {createPegLayout} from "./board-layout.mjs?v=0.8.3";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.8.3";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -375,15 +375,6 @@ const launchConsole=document.querySelector(".launch-console");
 let fitScheduled=false;
 function fitMachine(){
   if(!machineSection||!cabinet||!launchConsole)return;
-  // On portrait phones, fill the wager HUD width; CSS independently stretches
-  // the Canvas to the remaining viewport height. Physics/pointer mapping stay
-  // in original 420x710 logical coordinates with separate x/y scale factors.
-  if(window.matchMedia?.("(max-width: 820px) and (orientation: portrait)").matches){
-    const target=Math.max(70,Math.floor(machineSection.clientWidth));
-    machineSection.style.setProperty("--fitted-cabinet-width",target+"px");
-    resizeCanvas();
-    return;
-  }
   const styles=getComputedStyle(machineSection);
   const gap=parseFloat(styles.rowGap)||0;
   const mobileVisible=getComputedStyle(mobilePlaybar).display!=="none";
@@ -622,6 +613,27 @@ for(const surface of [canvas,plungerGrip]){
   surface.addEventListener("lostpointercapture",pointerCancel);
   surface.addEventListener("contextmenu",event=>event.preventDefault());
 }
+
+// On iOS Safari, touch-action: manipulation alone may not suppress the smart
+// double-tap zoom on noninteractive arcade decoration. Cancel ONLY the second,
+// nearby tap. Preserve ordinary taps, button rapid presses and two-finger pinch.
+let lastGameTapAt=0,lastGameTapX=0,lastGameTapY=0;
+document.addEventListener("touchend",event=>{
+  if(!event.cancelable||event.changedTouches?.length!==1||event.touches?.length!==0)return;
+  const target=event.target;
+  if(!target?.closest?.(".shell"))return;
+  if(target.closest("button,a,input,select,textarea"))return;
+  const touch=event.changedTouches[0];
+  const now=performance.now(),x=touch.clientX,y=touch.clientY;
+  if(now-lastGameTapAt<340&&Math.hypot(x-lastGameTapX,y-lastGameTapY)<32){
+    event.preventDefault();lastGameTapAt=0;return;
+  }
+  lastGameTapAt=now;lastGameTapX=x;lastGameTapY=y;
+},{passive:false});
+document.addEventListener("dblclick",event=>{
+  if(event.target?.closest?.(".shell")&&event.cancelable)event.preventDefault();
+},{passive:false});
+
 window.addEventListener("orientationchange",cancelCharge);
 window.addEventListener("keydown",event=>{
   if(event.code!=="Space"||event.repeat||document.querySelector("dialog[open]"))return;
