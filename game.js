@@ -643,7 +643,7 @@ $("soundBtn").addEventListener("click",event=>{
   event.currentTarget.textContent=soundEnabled?"♫":"♩";
   if(soundEnabled)beep(620,.1);
 });
-for(const id of ["helpBtn","howToBtn"])$(id).addEventListener("click",()=>el.info.showModal());
+$("helpBtn").addEventListener("click",()=>el.info.showModal());
 $("giftBtn").addEventListener("click",()=>{renderGifts();el.shop.showModal();});
 document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("click",()=>{
   $(btn.dataset.close).close();

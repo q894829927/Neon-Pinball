@@ -226,3 +226,29 @@ body{min-height:0!important}
   .power-track{height:5px!important}
   .game-version{font-size:9px;line-height:12px}
 }
+
+
+/* v0.7.1 - desktop composition: readable wager card beside a balanced cabinet. */
+@media (min-width:821px) and (orientation:landscape) and (min-height:621px){
+  .machine-layout{
+    max-width:825px;
+    grid-template-columns:minmax(220px,255px) minmax(0,1fr);
+    gap:16px;
+  }
+  .side-left{
+    justify-content:flex-start;
+    padding-top:clamp(20px,10dvh,95px);
+  }
+  .wallet-panel{
+    padding:20px 17px;
+    border-radius:14px;
+    font-size:13px;
+  }
+  .wallet-heading{font-size:13px}
+  .wallet-value strong{font-size:39px}
+  .stake-live strong{font-size:32px}
+  .wager-hint{font-size:11px}
+  .wager-help{font-size:11px}
+  .bet-grid .bet-choice{min-height:46px;font-size:14px}
+  .cabinet-logo{font-size:clamp(13px,1.35vw,19px)}
+}
