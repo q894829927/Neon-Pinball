@@ -178,3 +178,53 @@ test("portrait, very narrow and short landscape screens do not crop the board",a
   assert.match(css,/\.screen-wrap \.shoot-overlay\{z-index:5\}/);
   assert.match(css,/\.modal\{/);
 });
+
+test("same plunger strength produces bounded, independently varied launches",async()=>{
+  const {randomLaunch,varyLaunchVelocity,VARIATION}=await import("../public/physics-variation.mjs");
+  const {firingVelocity}=await import("../public/plunger.mjs");
+  const base=firingVelocity(.65);
+  const first=varyLaunchVelocity(base,randomLaunch(()=>0));
+  const center=varyLaunchVelocity(base,randomLaunch(()=>.5));
+  const last=varyLaunchVelocity(base,randomLaunch(()=>1));
+  assert.deepEqual(center,base,"centered perturbation preserves original physical velocity");
+  assert.notDeepEqual(first,last,"identical player force should not lock the launch vector");
+  assert.ok(first.laneVy!==last.laneVy);
+  assert.ok(first.entryVx!==last.entryVx);
+  let seed=1234567;
+  const rng=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
+  const samples=Array.from({length:1000},()=>varyLaunchVelocity(base,randomLaunch(rng)));
+  assert.ok(new Set(samples.map(v=>v.entryVx.toFixed(4))).size>950);
+  for(const v of samples){
+    const laneRatio=Math.abs(v.laneVy/base.laneVy);
+    assert.ok(laneRatio>=1-VARIATION.laneSpeed-1e-10&&laneRatio<=1+VARIATION.laneSpeed+1e-10);
+    const baseSpeed=Math.hypot(base.entryVx,base.entryVy);
+    const ratio=Math.hypot(v.entryVx,v.entryVy)/baseSpeed;
+    assert.ok(ratio>=1-VARIATION.entrySpeed-1e-10&&ratio<=1+VARIATION.entrySpeed+1e-10);
+  }
+});
+
+test("collision variation only modifies velocity tangent to a real impact",async()=>{
+  const {varyPegRebound,VARIATION}=await import("../public/physics-variation.mjs");
+  const none=varyPegRebound(120,-60,1,0,0,()=>1);
+  assert.deepEqual(none,{vx:120,vy:-60});
+  const left=varyPegRebound(120,-60,1,0,100,()=>0);
+  const right=varyPegRebound(120,-60,1,0,100,()=>1);
+  assert.equal(left.vx,120);
+  assert.equal(right.vx,120);
+  assert.ok(left.vy!==right.vy);
+  assert.ok(Math.abs(left.vy+60)<=VARIATION.maxPegImpulse);
+  assert.ok(Math.abs(right.vy+60)<=VARIATION.maxPegImpulse);
+  const vertical=varyPegRebound(120,-60,0,-1,99999,()=>1);
+  assert.equal(vertical.vy,-60);
+  assert.ok(Math.abs(vertical.vx-120)<=VARIATION.maxPegImpulse);
+});
+
+test("randomness changes real physics but does not preselect payout slots",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  assert.match(game,/shotVelocity=varyLaunchVelocity\(firingVelocity\(power\),randomLaunch\(\)\)/);
+  assert.match(game,/varyPegRebound\(ball\.vx,ball\.vy,nx,ny,-impact\)/);
+  assert.match(game,/withVariation&&-impact>35/);
+  assert.match(game,/finishShot\(ball\.slot\)/);
+  assert.match(game,/for\(let i=1;i<SLOT_COUNT;i\+\+\)bump\(SLOT_LEFT\+i\*SLOT_W,SLOT_TOP-1,4\.2,\.62,false\)/);
+});
