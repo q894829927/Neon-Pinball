@@ -1,6 +1,7 @@
 import { BETS, MULTIPLIERS, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, createRound, canAfford, settle, redeem, selectTheme
 } from "./rules.mjs";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -11,7 +12,7 @@ const canvas=$("board"),ctx=canvas.getContext("2d",{alpha:false});
 const el={balance:$("balance"),rounds:$("rounds"),wins:$("wins"),cards:$("cards"),
   multiplier:$("multiplier"),payout:$("possiblePayout"),best:$("best"),
   earned:$("earned"),themeName:$("themeName"),status:$("launchStatus"),
-  power:$("powerPct"),bar:$("powerFill"),shoot:$("launchBtn"),
+  power:$("powerPct"),bar:$("powerFill"),
   overlay:$("shootOverlay"),resultTitle:$("resultTitle"),
   resultStamp:$("resultStamp"),resultNumber:$("resultNumber"),
   resultDetail:$("resultDetail"),cardEarned:$("cardEarned"),
@@ -36,7 +37,8 @@ try{save=restoreSave(JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"));}
 catch{save=freshSave();}
 let round=createRound(),stake=10,phase="ready";
 let ball=null,trail=[],lastTime=0,accumulator=0,elapsed=0;
-let charging=false,charge=0,chargeStarted=0,shotStake=0,priorSave=null,settled=false;
+let charging=false,charge=0,chargeStarted=0,chargeMode=null,dragPointerId=null,dragStartY=0;
+let shotStake=0,priorSave=null,settled=false;
 let soundEnabled=false,audioContext=null,floatingUntil=0,particles=[],screenShake=0;
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(save));}catch{}}
 function beep(f=520,d=.08,type="sine",volume=.05){
@@ -74,8 +76,6 @@ function refresh(){
     btn.classList.toggle("selected",selected);btn.setAttribute("aria-pressed",String(selected));
     btn.disabled=phase!=="ready"||save.marbles<v;
   });
-  el.shoot.disabled=phase!=="ready"||!canAfford(save,stake);
-  el.shoot.classList.toggle("charging",charging);
   el.status.textContent=phase==="ready"?"等待发射":
     phase==="shooting"?"弹珠运行中":phase==="result"?"本局已结束":"弹珠不足";
   $("betHint").textContent=save.marbles<10?"余额不足：下一局可免费领取体验弹珠。":
@@ -85,26 +85,35 @@ function updatePower(){
   el.bar.style.width=Math.round(charge*100)+"%";
   el.power.textContent=Math.round(charge*100)+"%";
 }
-function beginCharge(){
-  if(phase!=="ready"||!canAfford(save,stake)||charging)return;
-  charging=true;charge=0;chargeStarted=performance.now();updatePower();
-  el.shoot.classList.add("charging");el.status.textContent="正在蓄力";
+function beginCharge(mode, startY=0, pointerId=null){
+  if(phase!=="ready"||!canAfford(save,stake)||charging)return false;
+  charging=true;charge=0;chargeMode=mode;chargeStarted=performance.now();
+  dragStartY=startY;dragPointerId=pointerId;
+  updatePower();el.status.textContent=mode==="pointer"?"正在下拉拉杆":"空格蓄力中";
   beep(270,.05,"triangle",.02);
+  return true;
 }
 function cancelCharge(){
-  if(!charging)return;charging=false;charge=0;updatePower();refresh();
+  charging=false;charge=0;chargeMode=null;dragPointerId=null;
+  updatePower();refresh();
 }
 function releaseCharge(){
   if(!charging)return;
-  charging=false;
-  charge=Math.max(.08,Math.min(1,(performance.now()-chargeStarted)/1550));
-  updatePower();
-  if(phase!=="ready"||!canAfford(save,stake)){cancelCharge();return;}
+  // Drag power depends ONLY on pulling distance, not on hold duration.
+  const power=chargeMode==="keyboard"
+    ?Math.min(1,(performance.now()-chargeStarted)/1550)
+    :charge;
+  charging=false;chargeMode=null;dragPointerId=null;
+  if(!canFire(power)||phase!=="ready"||!canAfford(save,stake)){
+    cancelCharge();return;
+  }
+  charge=power;updatePower();
+  const velocity=firingVelocity(power);
   priorSave={...save,redeemed:[...save.redeemed]};shotStake=stake;
   save={...save,marbles:save.marbles-stake};persist();
   phase="shooting";settled=false;elapsed=0;trail=[];particles=[];
-  ball={x:LANE,y:657,vx:0,vy:-(820+charge*560),r:R,mode:"lane",slot:-1,spin:0};
-  beep(370+charge*210,.23,"sawtooth",.045);notify("GOOD LUCK! ✦",850);refresh();
+  ball={x:LANE,y:606,vx:0,vy:velocity.laneVy,r:R,mode:"lane",slot:-1,spin:0};
+  beep(370+power*210,.23,"sawtooth",.045);notify("GOOD LUCK! ✦",850);refresh();
 }
 function burst(x,y,color,n=8){
   for(let k=0;k<n;k++){
@@ -136,7 +145,8 @@ function advance(dt){
       if(ball.y<=TOP-15){
         // The curved upper firing track guides the ball onto the peg field.
         ball.x=RIGHT-10;ball.y=TOP-15;
-        ball.vx=-(95+charge*200);ball.vy=-70-charge*105;ball.mode="field";
+        const velocity=firingVelocity(charge);
+        ball.vx=velocity.entryVx;ball.vy=velocity.entryVy;ball.mode="field";
         burst(ball.x,ball.y,palette[save.theme].gold,6);
       }
     }else if(ball.mode==="field"){
@@ -160,7 +170,7 @@ function advance(dt){
       ball.x+=(target-ball.x)*Math.min(1,dt*12);ball.y+=ball.vy*dt;
       if(ball.y>=SLOT_BOTTOM){ball.y=SLOT_BOTTOM;finishShot(ball.slot);}
     }
-    trail.push({x:ball.x,y:ball.y});if(trail.length>14)trail.shift();
+    trail.push({x:ball.x,y:ball.y});if(trail.length>9)trail.shift();
   }
   particles=particles.filter(p=>p.life>0);
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=200*dt;p.life-=dt;}
@@ -190,7 +200,8 @@ function nextRound(){
   if(phase!=="result")return;
   if(save.marbles<10){save={...save,marbles:100};persist();}
   round=createRound();stake=BETS.find(v=>v<=save.marbles)||10;
-  charge=0;ball=null;trail=[];settled=false;priorSave=null;shotStake=0;
+  charge=0;charging=false;chargeMode=null;dragPointerId=null;
+  ball=null;trail=[];settled=false;priorSave=null;shotStake=0;
   updatePower();phase="ready";el.overlay.hidden=true;refresh();
 }
 function renderGifts(){
@@ -242,11 +253,54 @@ function label(t,x,y,size=12,color="#d6d1e7",align="left",weight="500"){
   ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(String(t),x,y);
 }
 function marble(x,y,r,p){
-  ctx.shadowBlur=13;ctx.shadowColor=p.sky;
+  ctx.shadowBlur=3;ctx.shadowColor=p.sky;
   const gr=ctx.createRadialGradient(x-2.5,y-3,1,x,y,r+1);
   gr.addColorStop(0,"#fff");gr.addColorStop(.36,"#d8e8ed");
   gr.addColorStop(.68,"#91b4c7");gr.addColorStop(1,"#3a526a");
   circle(x,y,r,gr);ctx.shadowBlur=0;circle(x-2.3,y-2.6,1.4,"#fff");
+}
+function resizeCanvas(){
+  // Match the rendered CSS pixel size on desktop/mobile high-DPI screens.
+  // Canvas logical coordinates remain exactly 420 x 710 for collision math.
+  const rect=canvas.getBoundingClientRect();
+  if(!rect.width||!rect.height)return;
+  const dpr=Math.min(3,Math.max(1,window.devicePixelRatio||1));
+  const width=Math.max(W,Math.round(rect.width*dpr));
+  const height=Math.max(H,Math.round(rect.height*dpr));
+  if(canvas.width!==width||canvas.height!==height){
+    canvas.width=width;canvas.height=height;
+  }
+}
+if("ResizeObserver" in window)new ResizeObserver(resizeCanvas).observe(canvas);
+window.addEventListener("resize",resizeCanvas);
+resizeCanvas();
+
+function drawPlunger(p){
+  const y=PLUNGER.restY+(charging?charge:0)*PLUNGER.travel;
+  const cx=PLUNGER.centerX;
+  // Dedicated, visibly mechanical, grabbable steel-and-brass plunger.
+  rounded(378,616,29,86,7,"#141727","#9d94a7");
+  rounded(382,621,21,75,5,"#273447","#636b82");
+  label("↓",cx,600,16,p.gold,"center","700");
+  label("PULL",cx,613,8,p.gold,"center","700");
+  for(let n=0;n<=4;n++){
+    const yy=625+n*14;
+    line(379,yy,382,yy,"#e9cfb2",1.5);
+    line(403,yy,406,yy,"#e9cfb2",1.5);
+  }
+  // Spring compresses visually as the metal handle is pulled towards the base.
+  const springStart=y+12,springEnd=695;
+  ctx.beginPath();ctx.moveTo(cx,springStart);
+  for(let n=0;n<9;n++){
+    const t=(n+1)/10;
+    ctx.lineTo(cx+(n%2?-6:6),springStart+(springEnd-springStart)*t);
+  }
+  ctx.lineTo(cx,springEnd);ctx.strokeStyle="#d7e5ec";ctx.lineWidth=2.4;ctx.stroke();
+  rounded(380,y-11,25,22,6,"#b8743e","#fff2c7");
+  rounded(382,y-10,21,17,5,p.gold,"#ffe9bc");
+  line(384,y-5,401,y-5,"#fff8e0",2);
+  line(384,y+4,401,y+4,"#ac753c",2);
+  if(charging)rounded(380,y-11,25,22,6,null,"#ffffff");
 }
 function draw(timestamp){
   const p=palette[save.theme];
@@ -262,9 +316,6 @@ function draw(timestamp){
   rounded(29,22,362,45,8,"#110f27","#b276666b");
   label("✦   MARBLE LUCK   ✦",210,39,13,p.gold,"center","700");
   label("倍率 "+round.multiplier+"× / 中奖红灯 03",210,57,10,"#be9fa7","center");
-  const glow=ctx.createRadialGradient(188,292,20,194,333,265);
-  glow.addColorStop(0,"#20375838");glow.addColorStop(1,"#14244300");
-  ctx.fillStyle=glow;ctx.fillRect(20,85,351,532);
   line(LEFT,106,LEFT,614,"#e2ac8666",4);
   line(RIGHT,110,RIGHT,615,"#e2ac8666",4);
   ctx.strokeStyle="#ffbc826a";ctx.lineWidth=3;ctx.beginPath();
@@ -281,7 +332,7 @@ function draw(timestamp){
     circle(peg.x,peg.y,peg.r,gr);circle(peg.x-1.3,peg.y-1.8,1.4,"#ffffffb0");
   }
   for(const b of bumpers){
-    ctx.shadowBlur=15;ctx.shadowColor=p.red;circle(b.x,b.y,b.r+4,"#fe52634a");
+    ctx.shadowBlur=5;ctx.shadowColor=p.red;circle(b.x,b.y,b.r+4,"#fe52634a");
     ctx.shadowBlur=0;circle(b.x,b.y,b.r,p.red);circle(b.x,b.y,b.r-4,"#3d243f");
     label("★",b.x,b.y+4,13,p.gold,"center","700");
   }
@@ -290,12 +341,12 @@ function draw(timestamp){
     const x=SLOT_LEFT+i*SLOT_W,lit=round.lit.includes(i);
     rounded(x+1,SLOT_TOP+8,SLOT_W-2,77,2,lit?"#813041":"#15243c",
       lit?"#ff7d8299":"#5f617955");
-    if(lit){ctx.shadowBlur=18;ctx.shadowColor=p.red;
+    if(lit){ctx.shadowBlur=5;ctx.shadowColor=p.red;
       circle(x+SLOT_W/2,SLOT_TOP+71,6,p.red);
       ctx.shadowBlur=0;circle(x+SLOT_W/2,SLOT_TOP+71,2.4,"#fff7f3");}
     else circle(x+SLOT_W/2,SLOT_TOP+71,3.3,"#536078");
     label(String(i+1).padStart(2,"0"),x+SLOT_W/2,SLOT_TOP+31,10,
-      lit?"#fff0ed":"#9aa6b9","center","700");
+      lit?"#fff8f4":"#cfdae9","center","700");
     if(lit)label("WIN",x+SLOT_W/2,SLOT_TOP+49,8,p.gold,"center","700");
   }
   for(let i=1;i<SLOT_COUNT;i++){
@@ -303,13 +354,12 @@ function draw(timestamp){
     circle(x,SLOT_TOP,4.2,"#e0d0c4");
   }
   line(SLOT_LEFT,SLOT_TOP,SLOT_RIGHT,SLOT_TOP,"#ffbf8599",2);
-  for(let j=0;j<7;j++)line(385,634+j*4,400,632+j*4,p.gold+"90",1);
-  rounded(383,657+Math.round((charging?charge:0)*9),20,17,4,p.gold,"#fff4dd");
-  if(phase==="ready"){marble(LANE,649+Math.sin(timestamp/310)*1.1,R,p);
-    label("READY",387,695,9,p.gold,"center","700");}
+  drawPlunger(p);
+  if(phase==="ready"){marble(LANE,606+Math.sin(timestamp/310)*1.1,R,p);
+    label("READY",391,581,8,p.gold,"center","700");}
   if(ball){
     for(let i=0;i<trail.length;i++){
-      const q=trail[i];ctx.globalAlpha=i/trail.length*.25;
+      const q=trail[i];ctx.globalAlpha=i/trail.length*.13;
       circle(q.x,q.y,R*(.3+i/trail.length*.5),p.sky);
     }
     ctx.globalAlpha=1;marble(ball.x,ball.y,R,p);
@@ -321,7 +371,9 @@ function draw(timestamp){
 }
 function frame(now){
   const delta=Math.min((now-(lastTime||now))/1000,.05);lastTime=now;
-  if(charging){charge=Math.min(1,(now-chargeStarted)/1550);updatePower();}
+  if(charging&&chargeMode==="keyboard"){
+    charge=Math.min(1,(now-chargeStarted)/1550);updatePower();
+  }
   accumulator+=delta;let steps=0;
   while(accumulator>=STEP&&steps<14){advance(STEP);accumulator-=STEP;steps++;}
   if(steps===14)accumulator=0;
@@ -333,22 +385,47 @@ document.querySelectorAll("[data-bet]").forEach(btn=>btn.addEventListener("click
   if(!canAfford(save,value))return;
   stake=value;refresh();beep(450,.06,"sine",.025);
 }));
-el.shoot.addEventListener("pointerdown",event=>{
-  if(event.button!==0)return;event.preventDefault();
-  el.shoot.setPointerCapture(event.pointerId);beginCharge();
+function pointerPosition(event){
+  return boardPoint(event.clientX,event.clientY,canvas.getBoundingClientRect(),W,H);
+}
+canvas.addEventListener("pointerdown",event=>{
+  if(event.button!==0||charging)return;
+  const {x,y}=pointerPosition(event);
+  if(!isPlungerHit(x,y))return;
+  if(beginCharge("pointer",y,event.pointerId)){
+    event.preventDefault();
+    canvas.setPointerCapture(event.pointerId);
+  }
 });
-el.shoot.addEventListener("pointerup",event=>{
-  event.preventDefault();if(charging)releaseCharge();
+canvas.addEventListener("pointermove",event=>{
+  if(!charging||chargeMode!=="pointer"||dragPointerId!==event.pointerId)return;
+  event.preventDefault();
+  charge=pullStrength(dragStartY,pointerPosition(event).y);
+  updatePower();
 });
-el.shoot.addEventListener("pointercancel",cancelCharge);
-el.shoot.addEventListener("lostpointercapture",()=>{if(charging)cancelCharge();});
-el.shoot.addEventListener("contextmenu",event=>event.preventDefault());
+canvas.addEventListener("pointerup",event=>{
+  if(!charging||chargeMode!=="pointer"||dragPointerId!==event.pointerId)return;
+  event.preventDefault();
+  charge=pullStrength(dragStartY,pointerPosition(event).y);
+  releaseCharge();
+});
+canvas.addEventListener("pointercancel",event=>{
+  if(chargeMode==="pointer"&&dragPointerId===event.pointerId)cancelCharge();
+});
+canvas.addEventListener("lostpointercapture",event=>{
+  if(chargeMode==="pointer"&&dragPointerId===event.pointerId)cancelCharge();
+});
+canvas.addEventListener("contextmenu",event=>event.preventDefault());
 window.addEventListener("keydown",event=>{
   if(event.code!=="Space"||event.repeat||document.querySelector("dialog[open]"))return;
-  event.preventDefault();beginCharge();
+  if(event.target instanceof HTMLElement &&
+     event.target.closest("button,a,input,textarea,select"))return;
+  event.preventDefault();
+  beginCharge("keyboard");
 });
 window.addEventListener("keyup",event=>{
-  if(event.code!=="Space"||!charging)return;event.preventDefault();releaseCharge();
+  if(event.code!=="Space"||!charging||chargeMode!=="keyboard")return;
+  event.preventDefault();releaseCharge();
 });
 window.addEventListener("blur",cancelCharge);
 el.next.addEventListener("click",nextRound);
@@ -366,7 +443,8 @@ document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("cli
 $("resetBtn").addEventListener("click",()=>{
   if(!confirm("确定清空所有虚拟弹珠、奖励卡和主题吗？此操作无法撤销。"))return;
   save=freshSave();round=createRound();stake=10;phase="ready";
-  ball=null;trail=[];charge=0;charging=false;priorSave=null;settled=false;
+  ball=null;trail=[];charge=0;charging=false;chargeMode=null;dragPointerId=null;
+  priorSave=null;settled=false;
   persist();updatePower();refresh();el.shop.close();el.overlay.hidden=true;
 });
 refresh();updatePower();requestAnimationFrame(frame);
