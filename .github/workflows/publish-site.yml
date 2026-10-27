@@ -24,6 +24,7 @@ jobs:
           set -euo pipefail
           node --check public/game.js
           node --check public/rules.mjs
+          node --check public/plunger.mjs
           node --test tests/*.test.mjs
       - name: Stage public static game
         run: |
@@ -33,6 +34,7 @@ jobs:
           test -s dist/index.html
           test -s dist/game.js
           test -s dist/rules.mjs
+          test -s dist/plunger.mjs
           test -s dist/style.css
           grep -Fq '/games/pinball/' dist/index.html
           ! grep -q 'VITE_SERVER_URL' dist/game.js
@@ -50,7 +52,7 @@ jobs:
                   sleep(.2)
           else:
               raise SystemExit("Static preview failed")
-          for path in ("game.js","rules.mjs","style.css"):
+          for path in ("game.js","rules.mjs","plunger.mjs","style.css"):
               with urlopen("http://127.0.0.1:8765/"+path) as r:
                   assert r.status==200
           PY

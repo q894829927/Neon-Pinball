@@ -103,9 +103,40 @@ test("deployment has actual pinball UI rather than old flipper controls",async()
   assert.match(html,/\/games\/pinball\/style\.css/);
   assert.match(html,/\/games\/pinball\/game\.js/);
   assert.match(html,/十一条落珠槽/);
-  assert.match(html,/发射按钮/);
+  assert.match(html,/下拉拉杆|机械拉杆/);
+  assert.doesNotMatch(html,/id="launchBtn"|class="launch-button"|长按发射按钮/);
   assert.match(js,/bump\(p\.x,p\.y,p\.r\)/);
   assert.match(js,/finishShot\(ball\.slot\)/);
   assert.match(js,/if\(settled\|\|!priorSave\)return/);
   assert.doesNotMatch(html,/左右挡板|Paddle/);
+});
+
+test("plunger drag is based on distance, not hold time; taps do not bet",async()=>{
+  const {PLUNGER,boardPoint,isPlungerHit,pullStrength,canFire,firingVelocity}=
+    await import("../public/plunger.mjs");
+  assert.equal(pullStrength(PLUNGER.restY,PLUNGER.restY),0);
+  assert.equal(pullStrength(PLUNGER.restY,PLUNGER.restY+21),.5);
+  assert.equal(pullStrength(PLUNGER.restY,PLUNGER.restY+100),1);
+  assert.equal(pullStrength(PLUNGER.restY,PLUNGER.restY-30),0);
+  assert.equal(canFire(pullStrength(650,650)),false);
+  assert.equal(canFire(pullStrength(650,690)),true);
+  assert.equal(isPlungerHit(391,646),true);
+  assert.equal(isPlungerHit(260,646),false);
+  const scaled=boardPoint(200,355,{left:0,top:0,width:400,height:710},420,710);
+  assert.equal(scaled.x,210);assert.equal(scaled.y,355);
+  assert.ok(Math.abs(firingVelocity(.8).laneVy)>Math.abs(firingVelocity(.2).laneVy));
+  assert.ok(Math.abs(firingVelocity(.8).entryVx)>Math.abs(firingVelocity(.2).entryVx));
+});
+
+test("DPR canvas and physical pointer drag are wired without an HTML launch button",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  assert.match(game,/window\.devicePixelRatio/);
+  assert.match(game,/ResizeObserver\(resizeCanvas\)/);
+  assert.match(game,/canvas\.setPointerCapture\(event\.pointerId\)/);
+  assert.match(game,/charge=pullStrength\(dragStartY,pointerPosition\(event\)\.y\)/);
+  assert.match(game,/drawPlunger\(p\)/);
+  assert.doesNotMatch(game,/el\.shoot|launchBtn/);
+  assert.doesNotMatch(html,/id="launchBtn"/);
 });
