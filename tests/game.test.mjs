@@ -518,7 +518,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.8\.2/);
+  assert.match(html,/class="game-version"[^>]*>v0\.8\.3/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -551,10 +551,10 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
   for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.8.2"'),"Versioned import: "+name);
+    assert.ok(js.includes('"./'+name+'?v=0.8.3"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.2'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.3'));
   }
 });
 
@@ -567,18 +567,21 @@ test("restored wager HUD defines the actual winning slot count before showing hi
 });
 
 
-test("portrait machines use full-width layout and native double-tap suppression",async()=>{
+test("reverted proportional single-screen layout and Safari double-tap guard",async()=>{
   const {readFileSync}=await import("node:fs");
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
-  assert.match(js,/window\.matchMedia\?\.\("\(max-width: 820px\) and \(orientation: portrait\)"\)\.matches/);
-  assert.match(js,/Math\.floor\(machineSection\.clientWidth\)/);
-  assert.match(css,/\.cabinet\{/);
+  assert.match(js,/function fitMachine\(\)/);
+  assert.doesNotMatch(js,/matchMedia\?\.\("\(max-width: 820px\) and \(orientation: portrait\)"\)\.matches/);
+  assert.match(css,/height:100dvh/);
   assert.match(css,/overflow:hidden!important/);
-  assert.match(css,/touch-action:manipulation/);
-  assert.match(css,/#board,\.plunger-grip\{touch-action:none!important\}/);
-  assert.match(css,/aspect-ratio:auto!important/);
-  assert.match(css,/object-fit:fill!important/);
-  assert.match(html,/class="game-version"[^>]*>v0\.8\.2/);
+  assert.doesNotMatch(css,/aspect-ratio:auto!important|object-fit:fill!important/);
+  assert.match(css,/touch-action: manipulation/);
+  assert.match(css,/#board,\.plunger-grip \{ touch-action: none!important/);
+  assert.match(js,/document\.addEventListener\("touchend",event=>/);
+  assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
+  assert.match(js,/\{passive:false\}/);
+  assert.match(js,/document\.addEventListener\("dblclick",event=>/);
+  assert.match(html,/class="game-version"[^>]*>v0\.8\.3/);
 });

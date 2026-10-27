@@ -112,26 +112,31 @@ const {chromium}=require("playwright");
           };
         });
         console.log("PHONE-LAYOUT "+profile.name+" "+JSON.stringify(layout));
-        assert.ok(layout.machine.width>=layout.hud.width*.97,"Cabinet must fill the wager bar width");
-        assert.ok(Math.abs(layout.machine.left-layout.hud.left)<=3,"Cabinet/HUD left edges must align");
-        assert.ok(Math.abs(layout.power.width-layout.hud.width)<=3,"Power bar must match width");
+        assert.ok(layout.machine.width>100&&layout.machine.width<=layout.hud.width+2,"Proportional cabinet fits HUD width");
         assert.ok(layout.scrollWidth<=layout.viewportWidth+2,"No horizontal scrolling");
         assert.ok(layout.scrollHeight<=profile.height+2,"No vertical page scrolling");
-        assert.match(layout.touchAction,/manipulation/,"Double-tap zoom disabled on game UI");
+        assert.match(layout.touchAction,/manipulation/,"Touch-action manipulation on game UI");
         assert.equal(layout.canvasTouchAction,"none","Plunger gestures must work");
         const geometry=await page.evaluate(()=>{
-          const screen=document.querySelector(".screen-wrap").getBoundingClientRect();
           const canvas=document.querySelector("#board").getBoundingClientRect();
           const power=document.querySelector(".launch-console").getBoundingClientRect();
-          return {screen:screen.toJSON(),canvas:canvas.toJSON(),powerBottom:power.bottom,viewport:window.innerHeight};
+          return {canvas:canvas.toJSON(),powerBottom:power.bottom,viewport:window.innerHeight};
         });
         console.log("PHONE-CANVAS "+profile.name+" "+JSON.stringify(geometry));
         assert.ok(geometry.canvas.height>180,"Playing field cannot collapse vertically");
-        // .screen-wrap has a 2px border on each edge: its content box, not
-        // the outer border box, is the actual Canvas painting surface.
-        assert.ok(Math.abs(geometry.canvas.height-geometry.screen.height)<=6,"Canvas fills screen content height");
-        assert.ok(Math.abs(geometry.canvas.width-geometry.screen.width)<=6,"Canvas fills screen content width");
+        assert.ok(Math.abs(geometry.canvas.width/geometry.canvas.height-420/710)<.02,
+          "Restore original steel-pin and ball shape without stretching");
         assert.ok(geometry.powerBottom<=geometry.viewport+2,"Bottom slots and power bar always visible");
+        // Two quick taps on an inert marquee must not change visualViewport.zoom.
+        const title=page.locator(".cabinet-logo");
+        const center=await title.boundingBox();
+        if(center){
+          const x=center.x+center.width/2,y=center.y+center.height/2;
+          await page.touchscreen.tap(x,y);
+          await page.touchscreen.tap(x,y);
+          const zoom=await page.evaluate(()=>window.visualViewport?.scale??1);
+          assert.ok(Math.abs(zoom-1)<.01,"Double-tap must not zoom the game");
+        }
       }
       await ctx.close();
     }
