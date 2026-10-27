@@ -1,4 +1,4 @@
-import { MIN_STAKE, MAX_STAKE, MULTIPLIERS, SLOT_COUNT, GIFTS, STORAGE_KEY,
+import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
 } from "./rules.mjs";
@@ -17,9 +17,7 @@ const plungerGrip=$("plungerGrip");
 const multiplierLamps=[...document.querySelectorAll("[data-mult-lamp]")];
 const coinFxLayer=$("coinFxLayer"), marbleHopper=$("marbleHopper");
 const reduceMotion=window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
-const el={balance:$("balance"),rounds:$("rounds"),wins:$("wins"),cards:$("cards"),
-  multiplier:$("multiplier"),payout:$("possiblePayout"),best:$("best"),
-  earned:$("earned"),themeName:$("themeName"),status:$("launchStatus"),
+const el={balance:$("balance"),cards:$("cards"),status:$("launchStatus"),
   power:$("powerPct"),bar:$("powerFill"),
   overlay:$("shootOverlay"),resultTitle:$("resultTitle"),
   resultStamp:$("resultStamp"),resultNumber:$("resultNumber"),
@@ -156,32 +154,11 @@ function refresh(){
   el.balance.textContent=save.marbles.toLocaleString("zh-CN");
   $("mobileBalance").textContent=save.marbles.toLocaleString("zh-CN");
   const visibleMultiplier=displayedMultiplier(revealState,round);
-  const visibleRound=visibleMultiplier===null?null:round;
-  const litCount=visibleRound?visibleRound.lit.length:null;
-  $("winSlotCount").textContent=litCount??"—";
-  $("mobileWinSlots").textContent=litCount??"—";
-  [...$("slotPreview").children].forEach((chip,index)=>{
-    chip.classList.toggle("is-winning",Boolean(visibleRound&&visibleRound.lit.includes(index)));
-  });
-  $("mobileMultiplier").textContent=visibleMultiplier??"?";
   $("mobileStake").textContent=stake.toLocaleString("zh-CN");
   $("stakeAmount").textContent=stake.toLocaleString("zh-CN");
-  $("mobileCards").textContent=save.cards;
-  el.cards.textContent=save.cards;el.rounds.textContent=save.rounds;
-  el.wins.textContent=save.wins;el.best.textContent=save.best;
-  el.earned.textContent=save.earned.toLocaleString("zh-CN");
-  el.multiplier.textContent=visibleMultiplier??"?";
-  el.payout.textContent=visibleRound?(stake*visibleMultiplier).toLocaleString("zh-CN"):"—";
-  $("roundLight").textContent=revealState==="rolling"?"● 抽取中":
-    visibleRound?"● 倍率已揭晓":"● 待投珠";
-  $("multiplierCaption").textContent=revealState==="rolling"?"顶部跑灯抽取中，请看机台灯光":
-    visibleRound?"倍率 ×"+visibleMultiplier+" · "+litCount+" 个红灯槽":"累计投满 5 颗后启动顶部倍率灯";
+  el.cards.textContent=save.cards;
   el.shopCards.textContent=save.cards;
-  const names={classic:"经典霓虹",sunset:"落日橘灯光",mint:"薄荷绿灯光",violet:"极光紫灯光"};
-  el.themeName.textContent=names[save.theme]||names.classic;
   document.body.dataset.theme=save.theme;
-  document.querySelectorAll(".rate-strip span").forEach((n,i)=>
-    n.classList.toggle("active",Boolean(visibleRound&&MULTIPLIERS[i]===visibleMultiplier)));
   document.querySelectorAll("[data-add]").forEach(btn=>{
     const n=Number(btn.dataset.add);
     btn.disabled=phase!=="ready"||revealState==="rolling"||charging||save.marbles<n||stake+n>MAX_STAKE;
@@ -408,6 +385,51 @@ function resizeCanvas(){
 if("ResizeObserver" in window)new ResizeObserver(resizeCanvas).observe(canvas);
 window.addEventListener("resize",resizeCanvas);
 resizeCanvas();
+
+// Fit the COMPLETE cabinet inside the remaining stage height and width,
+// accounting for HUD and power bar. CSS-only vh guesses used to clip the
+// bottom slots on narrow and short phones.
+const machineSection=document.querySelector(".machine-section");
+const cabinet=document.querySelector(".cabinet");
+const mobilePlaybar=document.querySelector(".mobile-playbar");
+const launchConsole=document.querySelector(".launch-console");
+let fitScheduled=false;
+function fitMachine(){
+  if(!machineSection||!cabinet||!launchConsole)return;
+  const styles=getComputedStyle(machineSection);
+  const gap=parseFloat(styles.rowGap)||0;
+  const mobileVisible=getComputedStyle(mobilePlaybar).display!=="none";
+  const hudHeight=mobileVisible?mobilePlaybar.getBoundingClientRect().height:0;
+  const consoleHeight=launchConsole.getBoundingClientRect().height;
+  const usableHeight=Math.max(50,machineSection.clientHeight-hudHeight-consoleHeight-gap*(mobileVisible?2:1)-3);
+  const maxWidth=Math.max(70,Math.min(540,machineSection.clientWidth-2));
+  let low=70,high=Math.max(70,maxWidth);
+  // Measure the actual resized cabinet, including lamps/chrome. Do not
+  // transform-scale the canvas: its pointer coordinates must remain accurate.
+  for(let i=0;i<13;i++){
+    const mid=(low+high)/2;
+    machineSection.style.setProperty("--fitted-cabinet-width",mid+"px");
+    if(cabinet.getBoundingClientRect().height>usableHeight)high=mid;
+    else low=mid;
+  }
+  machineSection.style.setProperty("--fitted-cabinet-width",Math.floor(low)+"px");
+  resizeCanvas();
+}
+function scheduleMachineFit(){
+  if(fitScheduled)return;
+  fitScheduled=true;
+  requestAnimationFrame(()=>{fitScheduled=false;fitMachine();});
+}
+if("ResizeObserver" in window){
+  const observer=new ResizeObserver(scheduleMachineFit);
+  observer.observe(machineSection);
+  observer.observe(mobilePlaybar);
+  observer.observe(launchConsole);
+}
+window.addEventListener("resize",scheduleMachineFit);
+window.addEventListener("orientationchange",scheduleMachineFit);
+window.visualViewport?.addEventListener("resize",scheduleMachineFit);
+scheduleMachineFit();
 
 function drawPlunger(p){
   const y=PLUNGER.restY+(charging?charge:0)*PLUNGER.travel;
