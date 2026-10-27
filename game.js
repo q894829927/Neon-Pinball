@@ -2,6 +2,7 @@ import { BETS, MULTIPLIERS, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, createRound, canAfford, settle, redeem, selectTheme
 } from "./rules.mjs";
 import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs";
+import {randomLaunch, varyLaunchVelocity, varyPegRebound} from "./physics-variation.mjs";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -39,7 +40,7 @@ catch{save=freshSave();}
 let round=createRound(),stake=10,phase="ready";
 let ball=null,trail=[],lastTime=0,accumulator=0,elapsed=0;
 let charging=false,charge=0,chargeStarted=0,chargeMode=null,dragPointerId=null,dragStartY=0;
-let shotStake=0,priorSave=null,settled=false;
+let shotStake=0,priorSave=null,settled=false,shotVelocity=null;
 let soundEnabled=false,audioContext=null,floatingUntil=0,particles=[],screenShake=0;
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(save));}catch{}}
 function beep(f=520,d=.08,type="sine",volume=.05){
@@ -112,11 +113,13 @@ function releaseCharge(){
     cancelCharge();return;
   }
   charge=power;updatePower();
-  const velocity=firingVelocity(power);
+  // Same pull force is not a guaranteed repeat: small independent variations
+  // imitate spring friction and launch alignment, without deciding the outcome.
+  shotVelocity=varyLaunchVelocity(firingVelocity(power),randomLaunch());
   priorSave={...save,redeemed:[...save.redeemed]};shotStake=stake;
   save={...save,marbles:save.marbles-stake};persist();
   phase="shooting";settled=false;elapsed=0;trail=[];particles=[];
-  ball={x:LANE,y:606,vx:0,vy:velocity.laneVy,r:R,mode:"lane",slot:-1,spin:0};
+  ball={x:LANE,y:606,vx:0,vy:shotVelocity.laneVy,r:R,mode:"lane",slot:-1,spin:0};
   beep(370+power*210,.23,"sawtooth",.045);notify("GOOD LUCK! ✦",850);refresh();
 }
 function burst(x,y,color,n=8){
@@ -126,7 +129,7 @@ function burst(x,y,color,n=8){
       life:.35+Math.random()*.35,color});
   }
 }
-function bump(cx,cy,r,energy=.76){
+function bump(cx,cy,r,energy=.76,withVariation=true){
   if(!ball||ball.mode!=="field")return false;
   const dx=ball.x-cx,dy=ball.y-cy,range=ball.r+r,dist=Math.hypot(dx,dy);
   if(dist>=range)return false;
@@ -136,6 +139,11 @@ function bump(cx,cy,r,energy=.76){
   if(impact<0){
     ball.vx-=(1+energy)*impact*nx;ball.vy-=(1+energy)*impact*ny;
     ball.vx+=ny*7*Math.sin(ball.spin);
+    if(withVariation&&-impact>35){
+      // Bounded tangential impulse only after a real contact.
+      const rebound=varyPegRebound(ball.vx,ball.vy,nx,ny,-impact);
+      ball.vx=rebound.vx;ball.vy=rebound.vy;
+    }
     if(-impact>65){beep(320+Math.min(850,-impact*.75),.045,"sine",.014);
       screenShake=Math.max(screenShake,Math.min(2.8,-impact/210));}
   }
@@ -149,8 +157,8 @@ function advance(dt){
       if(ball.y<=TOP-15){
         // The curved upper firing track guides the ball onto the peg field.
         ball.x=RIGHT-10;ball.y=TOP-15;
-        const velocity=firingVelocity(charge);
-        ball.vx=velocity.entryVx;ball.vy=velocity.entryVy;ball.mode="field";
+        ball.vx=shotVelocity.entryVx;ball.vy=shotVelocity.entryVy;
+        ball.mode="field";
         burst(ball.x,ball.y,palette[save.theme].gold,6);
       }
     }else if(ball.mode==="field"){
@@ -162,7 +170,7 @@ function advance(dt){
       for(const p of pegs)bump(p.x,p.y,p.r);
       for(const p of bumpers)if(bump(p.x,p.y,p.r,.92) && Math.random()<.16)
         burst(p.x,p.y,palette[save.theme].sky,3);
-      for(let i=1;i<SLOT_COUNT;i++)bump(SLOT_LEFT+i*SLOT_W,SLOT_TOP-1,4.2,.62);
+      for(let i=1;i<SLOT_COUNT;i++)bump(SLOT_LEFT+i*SLOT_W,SLOT_TOP-1,4.2,.62,false);
       if(ball.y>=SLOT_TOP+15&&ball.vy>0){
         ball.slot=Math.min(SLOT_COUNT-1,Math.max(0,Math.floor((ball.x-SLOT_LEFT)/SLOT_W)));
         ball.mode="slot";ball.vx=0;ball.vy=170;beep(450,.11,"triangle",.045);
@@ -205,7 +213,7 @@ function nextRound(){
   if(save.marbles<10){save={...save,marbles:100};persist();}
   round=createRound();stake=BETS.find(v=>v<=save.marbles)||10;
   charge=0;charging=false;chargeMode=null;dragPointerId=null;
-  ball=null;trail=[];settled=false;priorSave=null;shotStake=0;
+  ball=null;trail=[];settled=false;priorSave=null;shotStake=0;shotVelocity=null;
   updatePower();phase="ready";el.overlay.hidden=true;refresh();
 }
 function renderGifts(){
@@ -458,7 +466,7 @@ $("resetBtn").addEventListener("click",()=>{
   if(!confirm("确定清空所有虚拟弹珠、奖励卡和主题吗？此操作无法撤销。"))return;
   save=freshSave();round=createRound();stake=10;phase="ready";
   ball=null;trail=[];charge=0;charging=false;chargeMode=null;dragPointerId=null;
-  priorSave=null;settled=false;
+  priorSave=null;settled=false;shotVelocity=null;
   persist();updatePower();refresh();el.shop.close();el.overlay.hidden=true;
 });
 refresh();updatePower();requestAnimationFrame(frame);
