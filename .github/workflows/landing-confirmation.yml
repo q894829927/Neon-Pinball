@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/landing-confirmation.yml'
+      - 'scripts/landing-experiments.mjs'
   workflow_dispatch:
 permissions:
   contents: read
