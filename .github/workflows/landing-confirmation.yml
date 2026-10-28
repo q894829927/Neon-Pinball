@@ -1,0 +1,35 @@
+name: Large sample validation of safer rail outlet
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/landing-confirmation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  paired-100k:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Baseline E0 and best safe candidate E1 (100002 shots each)
+        env:
+          EXPERIMENT_GROUPS: 'E0,E1'
+          EXPERIMENT_SHOTS_PER_POWER: '16667'
+          EXPERIMENT_OUTPUT: 'confirmation-output'
+        run: |
+          set -euo pipefail
+          node scripts/landing-experiments.mjs
+          cat confirmation-output/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload detailed landing distributions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-e0-e1-100k-confirmation
+          path: confirmation-output/
+          if-no-files-found: warn
+          retention-days: 30
