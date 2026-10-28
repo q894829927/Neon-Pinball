@@ -1,14 +1,15 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.10.0";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.0";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.0";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.0";
-import {createPegLayout} from "./board-layout.mjs?v=0.10.0";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.0";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.0";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.0";
+} from "./rules.mjs?v=0.10.1";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.1";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.1";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.1";
+import {createPegLayout} from "./board-layout.mjs?v=0.10.1";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.1";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.1";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.1";
+import {makeTrayBall,stepTrayBalls} from "./payout-tray.mjs?v=0.10.1";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -30,12 +31,15 @@ const coinFxLayer=$("coinFxLayer"), marbleHopper=$("marbleHopper");
 const reduceMotion=window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
 const el={balance:$("balance"),cards:$("cards"),status:$("launchStatus"),
   power:$("powerPct"),bar:$("powerFill"),
-  overlay:$("shootOverlay"),resultTitle:$("resultTitle"),
+  resultPanel:$("inlineResult"),resultTitle:$("resultTitle"),
   resultStamp:$("resultStamp"),resultNumber:$("resultNumber"),
   resultDetail:$("resultDetail"),cardEarned:$("cardEarned"),
   next:$("nextBtn"),message:$("floatMessage"),shop:$("shopDialog"),
   payoutStage:$("payoutStage"),payoutActLabel:$("payoutActLabel"),
-  payoutCounter:$("payoutCounter"),payoutCoins:$("payoutCoins"),
+  payoutCounter:$("payoutCounter"),payoutEarnings:$("payoutEarnings"),
+  payoutSkip:$("payoutSkip"),
+  payoutBasin:$("payoutBasin"),payoutCoins:$("payoutCoins"),
+  ticketDispenser:$("ticketDispenser"),
   payoutTickets:$("payoutTickets"),payoutCardCount:$("payoutCardCount"),
   giftList:$("giftList"),shopCards:$("shopCards"),info:$("infoDialog")};
 const palette={
@@ -332,40 +336,68 @@ function advance(dt){
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=200*dt;p.life-=dt;}
   screenShake=Math.max(0,screenShake-10*dt);
 }
-/** Visual dispensers sit inside screen-wrap; they never change cabinet height.
- * Sprites represent the won amount, not one DOM node for every virtual marble. */
-function buildPayoutSprites(plan){
-  const coins=document.createDocumentFragment();
-  for(let i=0;i<plan.coinSprites;i++){
-    const node=document.createElement("span");
-    node.className="dispensed-marble";
-    node.style.setProperty("--coin-delay",Math.round(i*66)+"ms");
-    node.style.setProperty("--coin-x",Math.round(Math.sin(i*2.45)*36)+"px");
-    node.style.setProperty("--coin-y",(i%3)*4+"px");
-    coins.append(node);
+/** All payout sprites are contained by a physical, transparent basin BELOW the canvas.
+ * Payout is already persisted by settleFunded before this decorative sequence. */
+function clearDispensers(){
+  el.payoutCoins.replaceChildren();
+  el.payoutTickets.replaceChildren();
+  el.payoutCardCount.hidden=true;
+  el.payoutStage.dataset.act="idle";
+  el.payoutStage.classList.remove("is-big-win");
+  el.ticketDispenser.classList.remove("is-printing");
+  for(const flying of coinFxLayer.querySelectorAll(".reward-flight-card"))flying.remove();
+}
+function animateTrayBalls(fx,dt){
+  const tray=el.payoutBasin, width=tray.clientWidth,height=tray.clientHeight;
+  if(width<20||height<16)return;
+  if(dt>0){
+    const passes=Math.max(1,Math.ceil(dt/(1/120)));
+    for(let n=0;n<passes;n++)stepTrayBalls(fx.balls,dt/passes,width,height);
   }
-  el.payoutCoins.replaceChildren(coins);
+  for(let i=0;i<fx.balls.length;i++){
+    const b=fx.balls[i],node=fx.ballNodes[i];
+    node.style.transform="translate3d("+(b.x-b.radius).toFixed(1)+"px,"+
+      (b.y-b.radius).toFixed(1)+"px,0)";
+  }
+}
+function emitTrayBall(fx){
+  const tray=el.payoutBasin,w=tray.clientWidth,h=tray.clientHeight;
+  if(w<24||h<16)return false;
+  const index=fx.balls.length,ball=makeTrayBall(index,w,h);
+  const node=document.createElement("span");
+  node.className="dispensed-marble";
+  node.setAttribute("aria-hidden","true");
+  el.payoutCoins.append(node);
+  fx.balls.push(ball);
+  fx.ballNodes.push(node);
+  animateTrayBalls(fx,0);
+  return true;
+}
+function printRewardTickets(fx){
+  if(!fx.plan.newCards)return;
+  el.ticketDispenser.classList.add("is-printing");
+  el.payoutCardCount.hidden=false;
+  el.payoutCardCount.textContent="卡 ×"+fx.plan.newCards;
   const tickets=document.createDocumentFragment();
-  for(let i=0;i<plan.cardSprites;i++){
-    const ticket=document.createElement("span");
-    ticket.className="dispensed-ticket";
-    ticket.textContent="★";
-    ticket.style.setProperty("--ticket-delay",i*140+"ms");
-    ticket.style.setProperty("--ticket-x",(i-(plan.cardSprites-1)/2)*22+"px");
-    tickets.append(ticket);
+  for(let i=0;i<fx.plan.cardSprites;i++){
+    const card=document.createElement("span");
+    card.className="dispensed-ticket";
+    card.textContent="★";
+    card.style.setProperty("--ticket-delay",i*145+"ms");
+    card.style.setProperty("--ticket-x",(i-(fx.plan.cardSprites-1)/2)*14+"px");
+    tickets.append(card);
   }
   el.payoutTickets.replaceChildren(tickets);
-  el.payoutCardCount.textContent="奖励卡 ×"+plan.newCards;
 }
-/** Ticket travels from the machine to the existing header card counter. */
+/** The card flight begins at the upper-left ticket dispenser, not the bottom tray. */
 function flyRewardCards(amount){
   if(reduceMotion||amount<=0)return;
   const base=coinFxLayer.getBoundingClientRect();
-  const source=el.payoutTickets.getBoundingClientRect();
+  const source=el.ticketDispenser.getBoundingClientRect();
   const destination=$("giftBtn").getBoundingClientRect();
   if(!base.width||!source.width||!destination.width)return;
   const startX=source.left+source.width*.5-base.left;
-  const startY=source.top+source.height*.65-base.top;
+  const startY=source.top+source.height*.6-base.top;
   const destX=destination.left+destination.width*.5-base.left;
   const destY=destination.top+destination.height*.5-base.top;
   for(let i=0;i<Math.min(amount,3);i++){
@@ -388,44 +420,68 @@ function startPayoutCeremony(result,slot){
   }
   const plan=payoutPlan({hit:result.hit,reward:result.reward,
     newCards:result.newCards,slot,multiplier:round.multiplier});
-  payoutFx={plan,startedAt:performance.now(),act:"impact",shownMarbles:0,
-    shownCards:0,lastCoinSoundAt:-Infinity,flewTickets:false};
-  buildPayoutSprites(plan);
+  const now=performance.now();
+  payoutFx={plan,startedAt:now,lastAt:now,act:"impact",shownMarbles:0,
+    shownCards:0,lastCoinSoundAt:-Infinity,flewTickets:false,
+    balls:[],ballNodes:[]};
+  el.resultPanel.hidden=true;
+  el.next.hidden=true;
+  el.payoutEarnings.hidden=false;
+  el.payoutSkip.hidden=false;
   el.payoutCounter.textContent="0";
+  el.payoutActLabel.hidden=false;
   el.payoutActLabel.textContent="命中第 "+(slot+1)+" 槽 · "+round.multiplier+"×";
   el.payoutStage.dataset.act="impact";
-  el.payoutStage.hidden=false;
-  el.overlay.hidden=true;
   phase="payout";
   refresh();
 }
 function showFinalResult(){
+  if(payoutFx){
+    // Leave the real payout marbles physically contained and visible in the tray.
+    const fx=payoutFx;
+    for(let n=fx.balls.length;n<fx.plan.coinSprites;n++){if(!emitTrayBall(fx))break;}
+    for(let n=0;n<90;n++)animateTrayBalls(fx,1/120);
+    if(fx.plan.newCards&&!fx.flewTickets){
+      fx.flewTickets=true;
+      printRewardTickets(fx);
+    }
+  }
   payoutFx=null;
-  el.payoutStage.hidden=true;
-  el.payoutStage.dataset.act="";
-  el.payoutCoins.replaceChildren();
-  el.payoutTickets.replaceChildren();
   phase="result";
-  el.overlay.hidden=false;
+  el.payoutStage.dataset.act="result";
+  el.payoutEarnings.hidden=true;
+  el.payoutActLabel.hidden=true;
+  el.payoutSkip.hidden=true;
+  el.resultPanel.hidden=false;
+  el.next.hidden=false;
   refresh();
 }
 function updatePayoutCeremony(now){
   if(!payoutFx)return;
   const fx=payoutFx,ms=Math.max(0,now-fx.startedAt);
+  const dt=Math.min(.06,Math.max(0,(now-fx.lastAt)/1000));
+  fx.lastAt=now;
   const act=payoutAct(fx.plan,ms);
   if(act==="done"){showFinalResult();return;}
   if(act!==fx.act){
     fx.act=act;
     el.payoutStage.dataset.act=act;
     if(act==="marbles"){
-      el.payoutActLabel.textContent="机械出珠中 · "+fx.plan.reward+" 颗";
+      el.payoutActLabel.textContent="出珠中 · 共 "+fx.plan.reward+" 颗";
       beep(300,.08,"triangle",.032);
     }else if(act==="tickets"){
-      el.payoutActLabel.textContent="奖励卡出票";
+      el.payoutActLabel.textContent="奖励卡出票 · "+fx.plan.newCards+" 张";
+      printRewardTickets(fx);
       beep(900,.12,"triangle",.042);
       beep(1120,.13,"sine",.04,.12);
     }
   }
+  if(ms>=430){
+    const progress=Math.min(1,(ms-430)/1220);
+    const shouldEmit=Math.min(fx.plan.coinSprites,Math.floor(progress*fx.plan.coinSprites));
+    while(fx.balls.length<shouldEmit){if(!emitTrayBall(fx))break;}
+  }
+  animateTrayBalls(fx,dt);
   if(act==="tickets"&&ms>=2180&&!fx.flewTickets){
     fx.flewTickets=true;
     flyRewardCards(fx.plan.newCards);
@@ -437,8 +493,7 @@ function updatePayoutCeremony(now){
     el.payoutCounter.textContent=amounts.marbles.toLocaleString("zh-CN");
     displayAwardTotals();
   }
-  if(act==="marbles"&&soundEnabled&&
-    now-fx.lastCoinSoundAt>170&&ms<1500){
+  if(act==="marbles"&&soundEnabled&&now-fx.lastCoinSoundAt>170){
     fx.lastCoinSoundAt=now;
     beep(480+Math.random()*130,.046,"triangle",.019);
   }
@@ -449,9 +504,7 @@ function finishShot(slot){
   const result=settleFunded(priorSave,round,shotStake,slot);
   save=result.save;persist();
   const tier=jackpotTier(result.hit,round.multiplier);
-  el.overlay.classList.toggle("is-win",result.hit);
-  el.overlay.classList.toggle("is-big-win",Boolean(tier));
-  el.overlay.dataset.jackpot=tier||"";
+  el.payoutStage.classList.toggle("is-big-win",Boolean(tier));
   const jackpotBanner=$("jackpotBanner");
   jackpotBanner.hidden=!tier;
   jackpotBanner.textContent=tier==="legendary"?"✦ LEGENDARY 10× ✦":"✦ SUPER JACKPOT 8× ✦";
@@ -487,11 +540,12 @@ function nextRound(){
   lampRoll={steps:[],step:-1,nextAt:0};
   charge=0;charging=false;chargeMode=null;dragPointerId=null;
   ball=null;trail=[];impactFlashes=[];slotPulse=null;
-  payoutFx=null;el.payoutStage.hidden=true;el.payoutCoins.replaceChildren();el.payoutTickets.replaceChildren();
-  el.overlay.classList.remove("is-win","is-big-win");
-  el.overlay.dataset.jackpot="";
+  payoutFx=null;clearDispensers();
+  el.resultPanel.hidden=true;el.next.hidden=true;el.payoutSkip.hidden=true;
+  el.payoutEarnings.hidden=true;el.payoutActLabel.hidden=false;
+  el.payoutActLabel.textContent="等待兑奖";
   settled=false;priorSave=null;shotStake=0;shotVelocity=null;
-  updatePower();phase="ready";el.overlay.hidden=true;refresh();
+  updatePower();phase="ready";refresh();
 }
 function renderGifts(){
   el.shopCards.textContent=save.cards;el.giftList.replaceChildren();
@@ -651,16 +705,7 @@ function draw(timestamp){
   glass.addColorStop(0,"#c0e9ff0c");glass.addColorStop(.19,"#ffffff00");
   glass.addColorStop(.72,"#ffffff00");glass.addColorStop(1,"#9bd7ff0b");
   ctx.fillStyle=glass;ctx.fillRect(23,97,347,516);
-  rounded(32,88,327,18,5,"#0e1a30","#997b7655");
-  label("✦  CHROME DROP  •  11 GATES  •  NEON SERIES  ✦",195,101,9,"#b5b6ce","center","700");
-  rounded(16,12,389,65,12,"#2c2039","#e5b67f");
-  rounded(20,16,381,57,10,"#100f26","#c78f70");
-  rounded(29,22,362,45,8,"#171329","#db996f88");
-  line(39,24,380,24,"#ffe5a951",1.3);
-  label("✦   MARBLE LUCK   ✦",210,40,15,p.gold,"center","800");
-  label(revealState==="rolling"?"顶部跑灯抽取倍率中…":
-    revealState==="revealed"&&round?"倍率 "+round.multiplier+"× · 红灯中奖槽 "+round.lit.length+"/11":
-    "投入 5 颗后抽取倍率与红灯槽",210,57,11,"#f7d7a7","center");
+  // Keep the upper playfield clear; no decorative title panel.
   line(LEFT,106,LEFT,614,"#e2ac8666",4);
   line(RIGHT,110,RIGHT,615,"#e2ac8666",4);
   ctx.strokeStyle="#ffbc826a";ctx.lineWidth=3;ctx.beginPath();
@@ -897,8 +942,10 @@ $("resetBtn").addEventListener("click",()=>{
   save=freshSave();round=null;stake=0;phase="ready";revealState="hidden";
   lampRoll={steps:[],step:-1,nextAt:0};
   ball=null;trail=[];impactFlashes=[];slotPulse=null;charge=0;charging=false;chargeMode=null;dragPointerId=null;
-  payoutFx=null;el.payoutStage.hidden=true;el.payoutCoins.replaceChildren();el.payoutTickets.replaceChildren();
+  payoutFx=null;clearDispensers();el.resultPanel.hidden=true;el.next.hidden=true;
+  el.payoutSkip.hidden=true;el.payoutEarnings.hidden=true;
+  el.payoutActLabel.hidden=false;el.payoutActLabel.textContent="等待兑奖";
   priorSave=null;settled=false;shotVelocity=null;
-  persist();updatePower();refresh();el.shop.close();el.overlay.hidden=true;
+  persist();updatePower();refresh();el.shop.close();
 });
 refresh();updatePower();requestAnimationFrame(frame);
