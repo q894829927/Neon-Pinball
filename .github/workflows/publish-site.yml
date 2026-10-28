@@ -31,6 +31,7 @@ jobs:
           node --check public/physics-engine.mjs
           node --check public/arcade-feedback.mjs
           node --check public/payout-ceremony.mjs
+          node --check public/payout-tray.mjs
           node --test tests/*.test.mjs
       - name: Stage public static game
         run: |
@@ -47,6 +48,7 @@ jobs:
           test -s dist/physics-engine.mjs
           test -s dist/arcade-feedback.mjs
           test -s dist/payout-ceremony.mjs
+          test -s dist/payout-tray.mjs
           test -s dist/style.css
           test -s dist/mobile.css
           test -s dist/fullscreen.css
@@ -66,7 +68,7 @@ jobs:
                   sleep(.2)
           else:
               raise SystemExit("Static preview failed")
-          for path in ("game.js","rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","style.css","mobile.css","fullscreen.css"):
+          for path in ("game.js","rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-tray.mjs","style.css","mobile.css","fullscreen.css"):
               with urlopen("http://127.0.0.1:8765/"+path) as r:
                   assert r.status==200
           PY

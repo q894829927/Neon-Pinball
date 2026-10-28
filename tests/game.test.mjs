@@ -519,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.0/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.1/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -551,11 +551,11 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
-  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.10.0"'),"Versioned import: "+name);
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-tray.mjs"]){
+    assert.ok(js.includes('"./'+name+'?v=0.10.1"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.0'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.1'));
   }
 });
 
@@ -584,7 +584,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.0/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.1/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -602,7 +602,7 @@ test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
   assert.match(game,/if\(reduceMotion\)return/);
   assert.match(game,/aria-label",soundEnabled\?"关闭音效":"开启音效"/);
   assert.match(html,/id="jackpotBanner"[^>]*hidden/);
-  assert.match(css,/\.shoot-overlay\.is-big-win/);
+  assert.match(css,/\.machine-payout\.is-big-win/);
   assert.match(css,/prefers-reduced-motion:reduce/);
   assert.doesNotMatch(engine,/arcade-feedback|metallicHit|jackpot/);
 });
@@ -646,11 +646,38 @@ test("mechanical payout is a pure presentation after saved settlement, with skip
   assert.match(code,/payoutAct\(fx.plan,ms\)/);
   assert.match(code,/if\(payoutFx\)showFinalResult\(\)/);
   assert.match(code,/payoutPlan\(\{hit:result.hit,reward:result.reward/);
-  assert.match(html,/id="payoutStage"[^>]*hidden/);
+  assert.match(html,/id="payoutStage"[^>]*data-act="idle"/);
+  assert.doesNotMatch(html,/id="shootOverlay"/);
+  assert.doesNotMatch(code,/shootOverlay|MARBLE LUCK|el\.overlay/);
+  assert.match(html,/class="machine-feeds"/);
+  assert.match(html,/id="ticketDispenser"/);
+  assert.match(html,/id="payoutBasin"/);
+  assert.match(code,/makeTrayBall\(index,w,h\)/);
+  assert.match(code,/stepTrayBalls\(fx\.balls,dt\/passes,width,height\)/);
+  assert.match(code,/payoutStage\.dataset\.act="result"/);
   assert.match(html,/id="payoutSkip"/);
   assert.match(html,/id="payoutCoins"/);
   assert.match(html,/id="payoutTickets"/);
-  assert.match(css,/\.payout-stage\s*\{\s*position:absolute/);
+  assert.match(css,/\.machine-payout\{display:grid/);
   assert.match(css,/\.reward-flight-card/);
   assert.match(html,/每满 50 颗获得 1 张/);
+});
+
+test("mechanical outlets are mounted on opposite top sides and the bowl is below the canvas",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const style=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  const feeds=html.indexOf('class="machine-feeds"');
+  const exit=html.indexOf('id="ticketDispenser"');
+  const hopper=html.indexOf('id="marbleHopper"');
+  const canvas=html.indexOf('id="board"');
+  const basin=html.indexOf('id="payoutBasin"');
+  assert.ok(feeds>=0&&feeds<exit&&exit<hopper&&hopper<canvas&&canvas<basin);
+  assert.match(style,/\.payout-collection-tray\{[^}]*overflow:hidden/s);
+  assert.match(style,/\.dispensed-marble\{position:absolute/);
+  assert.match(game,/function showFinalResult\(\)/);
+  assert.match(game,/el\.resultPanel\.hidden=false/);
+  assert.match(game,/payoutFx=null;\s*phase="result"/);
+  assert.match(game,/el\.payoutCoins\.replaceChildren\(\)/);
 });

@@ -82,6 +82,55 @@ const {chromium}=require("playwright");
           "Desktop cabinet must remain readable");
       }
       assert.ok(evidence.canvasWidth>0&&evidence.canvasHeight>0);
+      const outlets=await page.evaluate(()=>{
+        const rect=(id)=>document.getElementById(id).getBoundingClientRect();
+        const ticket=rect("ticketDispenser"),hopper=rect("marbleHopper"),
+          board=rect("board"),basin=rect("payoutBasin");
+        return {ticket:ticket.toJSON(),hopper:hopper.toJSON(),
+          board:board.toJSON(),basin:basin.toJSON(),
+          popup:document.querySelector("#shootOverlay")!==null};
+      });
+      assert.equal(outlets.popup,false,"No full-screen result modal");
+      assert.ok(outlets.ticket.right<outlets.hopper.left+2,"Ticket exit is left of input slot");
+      assert.ok(Math.abs(outlets.ticket.top-outlets.hopper.top)<15,"Ticket exit shares hopper row");
+      assert.ok(outlets.basin.top>=outlets.board.bottom-1,"The payout bowl is below the pinball field");
+      assert.ok(outlets.basin.width>20&&outlets.basin.height>=16,"Visible physical payout bowl");
+      if(profile.name==="desktop"||profile.name==="phone"){
+        const trayPhysics=await page.evaluate(async()=>{
+          const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
+            "/games/pinball/payout-tray.mjs?v=0.10.1");
+          const container=document.getElementById("payoutBasin");
+          const track=document.getElementById("payoutCoins");
+          const width=track.clientWidth,height=track.clientHeight;
+          const balls=[],nodes=[];
+          for(let tick=0;tick<210;tick++){
+            if(tick%5===0&&balls.length<20){
+              balls.push(makeTrayBall(balls.length,width,height));
+              const node=document.createElement("span");
+              node.className="dispensed-marble";
+              track.append(node);nodes.push(node);
+            }
+            stepTrayBalls(balls,1/60,width,height);
+            for(let i=0;i<balls.length;i++){
+              const b=balls[i];
+              if(!isBallInTray(b,width,height))return {ok:false,reason:"Model escaped",ball:b};
+              nodes[i].style.transform="translate3d("+(b.x-b.radius)+"px,"+
+                (b.y-b.radius)+"px,0)";
+            }
+          }
+          const basin=container.getBoundingClientRect();
+          const safe=nodes.every(node=>{
+            const bounds=node.getBoundingClientRect();
+            return bounds.left>=basin.left-1&&bounds.right<=basin.right+1&&
+              bounds.top>=basin.top-1&&bounds.bottom<=basin.bottom+1;
+          });
+          nodes.forEach(node=>node.remove());
+          return {ok:safe,balls:balls.length,width,height};
+        });
+        assert.equal(trayPhysics.balls,20);
+        assert.equal(trayPhysics.ok,true,"All physically simulated marbles are inside the visible basin");
+        console.log("PAYOUT-TRAY "+profile.name+" "+JSON.stringify(trayPhysics));
+      }
       const button=profile.name.startsWith("desktop")||profile.name==="landscape"
         ?page.locator('.side-left [data-add="1"]')
         :page.locator('.mobile-playbar [data-add="1"]');
@@ -100,19 +149,19 @@ const {chromium}=require("playwright");
         await page.waitForTimeout(680);
         await page.keyboard.up("Space");
         await page.waitForFunction(
-          ()=>!document.querySelector("#shootOverlay").hidden,
+          ()=>!document.querySelector("#inlineResult").hidden,
           null,{timeout:28000});
         const result=await page.locator("#resultDetail").textContent();
-        assert.equal(await page.locator("#payoutStage").isVisible(),false,
-          "All non-skipped ceremonies must eventually reveal the result");
+        assert.equal(await page.locator("#payoutStage").getAttribute("data-act"),"result",
+          "Four-act sequence resolves inside the cabinet, without a popup");
         assert.ok(await page.locator("#payoutSkip").count()===1,
           "Four-act ceremony offers an explicit skip control");
         const winPresentation=await page.evaluate(()=>{
-          const overlay=document.querySelector("#shootOverlay");
+          const machine=document.querySelector("#payoutStage");
           const banner=document.querySelector("#jackpotBanner");
-          return {big:overlay.classList.contains("is-big-win"),
+          return {big:machine.classList.contains("is-big-win"),
             bannerVisible:!banner.hidden,
-            win:overlay.classList.contains("is-win")};
+            win:document.querySelector("#resultTitle").textContent.includes("命中")};
         });
         assert.equal(winPresentation.big,winPresentation.bannerVisible,
           "Jackpot banner and special overlay must be synchronized");
