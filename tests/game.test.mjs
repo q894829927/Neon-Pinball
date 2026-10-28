@@ -462,7 +462,7 @@ test("UI previews match the real winning slots instead of fixed 3 red slots",asy
   }
   assert.doesNotMatch(html,/id="winSlotCount"|id="mobileWinSlots"|id="slotPreview"/);
   assert.doesNotMatch(game,/visibleRound\.lit\.includes\(index\)/);
-  assert.match(game,/round\.lit\.length\+"\/11"/);
+  assert.match(game,/const litCount=revealState==="revealed"&&round\?round\.lit\.length:0/);
   assert.match(game,/revealState==="revealed"&&round&&round\.lit\.includes\(i\)/);
   assert.match(html,/data-mult-lamp="10"/);
   assert.match(css,/\.mult-lamp\.is-final/);
