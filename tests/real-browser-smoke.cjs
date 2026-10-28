@@ -91,6 +91,10 @@ const {chromium}=require("playwright");
       if(profile.name==="desktop"){
         // A genuine launch must finish by touching the physical bottom floor.
         // This catches a shot stuck forever in the new guide/collision system.
+        // Keep audio enabled for the real physical shot: exercise collision
+        // synthesis in Chromium, not only the toggle's startup beep.
+        await page.locator("#soundBtn").click();
+        assert.equal(await page.locator("#soundBtn").getAttribute("aria-pressed"),"true");
         await page.evaluate(()=>document.activeElement?.blur?.());
         await page.keyboard.down("Space");
         await page.waitForTimeout(680);
