@@ -1,0 +1,37 @@
+name: Physical landing distribution experiments
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/landing-experiments.mjs'
+      - '.github/workflows/landing-experiments.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare-e0-e1-e2-e3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and unit tests
+        run: |
+          node --check scripts/landing-experiments.mjs
+          node --test tests/*.test.mjs
+      - name: Run four seeded real-physics experiments
+        env:
+          EXPERIMENT_SHOTS_PER_POWER: '1000'
+        run: |
+          node scripts/landing-experiments.mjs
+          cat experiment-output/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload full per-slot results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-experiments-e0-e1-e2-e3
+          path: experiment-output/
+          if-no-files-found: warn
+          retention-days: 30
