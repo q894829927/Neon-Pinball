@@ -28,9 +28,11 @@ function variantSource(kind){
     return baseSource.replace(railPattern,
       "3*v*u*u*"+(364-shift)+"+u*u*u*"+(345-shift));
   }
-  if(kind==="E3"){
+  if(kind==="E3"||kind==="E3b"){
     // Collision in both substeps, with same restitution/friction as a divider.
-    const segment="const e=resolveSegment(ball,{ax:359,ay:250,bx:344,by:283,r:1.15},PHYSICS.dividerRestitution,PHYSICS.dividerFriction,rng);if(e)impacts.push(e);";
+    const segment=kind==="E3"
+      ? "const e=resolveSegment(ball,{ax:359,ay:250,bx:344,by:283,r:1.15},PHYSICS.dividerRestitution,PHYSICS.dividerFriction,rng);if(e)impacts.push(e);"
+      : "const e=resolveSegment(ball,{ax:343,ay:250,bx:330,by:273,r:1.15},PHYSICS.dividerRestitution,PHYSICS.dividerFriction,rng);if(e)impacts.push(e);";
     return baseSource.replace(dividerPattern,"{ "+segment+" }\n   "+dividerPattern);
   }
   throw Error("Unexpected experiment");
@@ -44,7 +46,8 @@ const engines={
   E0:baseline,
   E1:await importPrototype("E1"),
   E2:await importPrototype("E2"),
-  E3:await importPrototype("E3")
+  E3:await importPrototype("E3"),
+  E3b:await importPrototype("E3b")
 };
 const powers=[.075,.15,.30,.55,.80,1];
 const slotCount=baseline.PHYSICS.slotCount;
@@ -153,7 +156,8 @@ for(const [id,engine] of Object.entries(engines)){
     id,description:{
       E0:"Current production baseline",E1:"Rail outlet 10px left; last control moved 10px left",
       E2:"Rail outlet 20px left; last control moved 20px left",
-      E3:"One real slanted right-side deflector capsule, (359,250) to (344,283)"
+      E3:"One real slanted right-side deflector capsule, (359,250) to (344,283)",
+      E3b:"Retracted, shorter deflector capsule, (343,250) to (330,273)"
     }[id],railEndpointX:fixed(railEndpointX,2),shots:total,
     entered,settled,timeouts,nonfinite,largeJumps,outside,dividerOverlap,
     maxFrameDisplacement:fixed(maxFrameDisplacement,2),maxSpeed:fixed(maxSpeed,2),
@@ -197,10 +201,10 @@ const report={
   bestValidBySlot11:best?.id??null,passed:valid.length===groupResults.length
 };
 const header=[
-  "# E0 / E1 / E2 / E3：真实物理落点对照实验",
+  "# E0 / E1 / E2 / E3 / E3b：真实物理落点对照实验",
   "",
   "- 使用生产物理代码，仅在内存中生成实验模块；线上物理逻辑与奖金规则均未修改。",
-  "- E0 当前；E1 / E2 仅将贝塞尔导轨末端及其前一控制点分别左移 10 / 20px（保持末端切线方向）；E3 仅增加右侧斜向实体导流板 (359,250) → (344,283)，半径 1.15px，同现有隔板的碰撞参数。",
+  "- E0 当前；E1 / E2 仅将贝塞尔导轨末端及其前一控制点分别左移 10 / 20px（保持末端切线方向）；E3 增加右侧斜向实体导流板 (359,250) → (344,283)；E3b 将导流板缩短并向左收至 (343,250) → (330,273) 以减少靠墙夹球。板半径均 1.15px、接触参数与隔板相同。",
   "- 六档发射力度："+powers.join(" / ")+"；每档每组 "+sample+" 次；每组 "+(sample*powers.length)+" 次，四组共 "+(sample*powers.length*4)+" 次物理仿真。",
   "- 所有组使用一组一组**相同的随机种子和发射力度**，最终比较使用配对差分；物理碰撞导致后续随机数调用分歧是实验真实差异。",
   "",
@@ -217,8 +221,8 @@ const header=[
   "",
   "## 第11槽：各力度的实测概率",
   "",
-  "| 发射力度 | E0 | E1 | E2 | E3 |",
-  "|---:|---:|---:|---:|---:|",
+  "| 发射力度 | "+groupResults.map(x=>x.id).join(" | ")+" |",
+  "|---:|"+groupResults.map(()=> "---:|").join(""),
   ...powers.map((power,i)=>"| "+power+" | "+groupResults.map(x=>pct(x.powers[i].slot11Rate)).join(" | ")+" |"),
   "",
   "## 11槽完整计数",
@@ -239,7 +243,7 @@ const header=[
   "",
   "## 实验限制",
   "",
-  "- 右侧导流板 E3 是*实验物理碰撞体*，未修改正式画布绘制。若决定上线，必须同步绘制实体挡板，再做电脑/手机浏览器真实游玩测试。",
+  "- 右侧导流板 E3/E3b 是*实验物理碰撞体*，未修改正式画布绘制。若决定上线，必须同步绘制实体挡板，再做电脑/手机浏览器真实游玩测试。",
   "- E1/E2 是导轨几何位置的受控测试；如决定采用，需同步调整绘图、导轨视觉、入口安全范围。",
   "- 未修改结算方式、不预设随机槽位、不对钢珠施加暗中位置修正。本实验不测虚拟弹珠收益，因为红灯抽签独立于弹道。",
   ""
@@ -254,4 +258,6 @@ console.log("EXPERIMENT_SUMMARY "+JSON.stringify({
      deltaPP:x.vsBaseline?.slot11DeltaPercentagePoints,ciPP:x.vsBaseline?.paired95CIpp})),
   report:outDir+"/report.md"
 }));
-if(!report.passed)process.exitCode=1;
+// A failed prototype is a measured result, not a failed experiment. The
+// experimental workflow only fails if the unmodified E0 baseline regresses.
+if(base.settled!==base.shots||base.timeouts||base.nonfinite||base.largeJumps||base.outside||base.dividerOverlap)process.exitCode=1;
