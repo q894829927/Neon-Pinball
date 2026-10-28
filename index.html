@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#0b0c1d">
   <meta name="description" content="单人街机倍率弹珠机">
   <title>星运弹珠局 · Neon Pinball</title>
-  <link rel="stylesheet" href="/games/pinball/style.css?v=0.9.0">
-  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.9.0">
-  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.9.0">
-  <script type="module" src="/games/pinball/game.js?v=0.9.0"></script>
+  <link rel="stylesheet" href="/games/pinball/style.css?v=0.10.0">
+  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.10.0">
+  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.10.0">
+  <script type="module" src="/games/pinball/game.js?v=0.10.0"></script>
 </head>
 <body>
   <div class="ambient glow-left"></div><div class="ambient glow-right"></div>
@@ -82,6 +82,26 @@
             <canvas id="board" width="420" height="710" role="img" aria-label="弹珠机游戏画面：右侧发射轨道、金属钉和 11 个奖励槽。"></canvas>
             <div id="plungerGrip" class="plunger-grip" aria-label="右下角机械拉杆触控区域" aria-hidden="true"></div>
             <div class="game-message" id="floatMessage" aria-live="polite"></div>
+            <div id="payoutStage" class="payout-stage" data-act="" hidden aria-label="中奖兑奖动画">
+              <div class="payout-spotlight" aria-hidden="true">✦</div>
+              <div class="payout-headline" id="payoutActLabel" role="status" aria-live="polite">中奖确认</div>
+              <div class="payout-earnings" aria-hidden="true">+<strong id="payoutCounter">0</strong><small> 颗弹珠</small></div>
+              <div class="payout-receivers" aria-hidden="true">
+                <div class="payout-marble-receiver">
+                  <div class="payout-receiver-name">MARBLE PAYOUT</div>
+                  <div class="payout-marble-mouth"><span></span></div>
+                  <div class="payout-coin-track" id="payoutCoins"></div>
+                  <div class="payout-collection-tray"></div>
+                </div>
+                <div class="payout-ticket-receiver">
+                  <div class="payout-receiver-name">REWARD CARDS</div>
+                  <div class="payout-ticket-mouth"></div>
+                  <div class="payout-ticket-track" id="payoutTickets"></div>
+                  <div class="payout-ticket-amount" id="payoutCardCount">奖励卡 ×0</div>
+                </div>
+              </div>
+              <button id="payoutSkip" class="payout-skip" type="button" aria-label="跳过兑奖动画并查看完整结算">跳过动画 ›</button>
+            </div>
             <div id="shootOverlay" class="shoot-overlay" hidden>
               <div class="result-card">
                 <div id="jackpotBanner" class="jackpot-banner" hidden aria-live="polite"></div>
@@ -101,7 +121,7 @@
         </div>
       </section>
     </main>
-    <div class="game-version" aria-label="游戏版本">v0.9.0</div>
+    <div class="game-version" aria-label="游戏版本">v0.10.0</div>
   </div>
 
   <dialog id="infoDialog" class="modal">
@@ -111,8 +131,8 @@
       <p><b>① 逐步投珠</b>：点击 +1、+5 或 +10 颗，将虚拟弹珠投入本局，余额立即扣除。累计投入 5 颗时启动顶部 2×、4×、6×、8×、10× 倍率灯，依次跑灯并逐渐减速，最后停在本局抽中的倍率，中奖红灯槽随之亮起；之后可以继续投注，倍率及红灯槽不变。发射前可退回全部已投弹珠。</p>
       <p><b>② 抽取奖励</b>：投入满 5 颗时随机确定本局倍率及红灯槽。2倍有5个中奖槽，4倍4个，6倍3个，8倍2个，10倍1个；共11个落珠槽。顶部倍率灯循环减速后揭晓本局结果，每局只抽一次。</p>
       <p><b>③ 发射钢珠</b>：在机台右侧下方按住金色拉杆向下拖动，拉得越远力度越大，松手后发射。也可按住空格键蓄力、松开发射。钢珠发射后不能再控制方向。同样的力度也有轻微的弹簧和金属钉碰撞误差，因此每次轨迹可能不同。</p>
-      <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。中奖位置每局随机，钢珠实际运动轨迹决定落槽；亮灯数量不等于精确中奖概率。撞钉音效需要点击右上角 ♩ 开启，8×、10× 命中有专属灯光演出。</p>
-      <p><b>⑤ 奖励卡片</b>：单次中奖奖励 ≥ 50 颗额外获得 1 张卡片，卡片可兑换游戏内虚拟外观。</p>
+      <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。中奖后机器依次进行槽位闪光、出珠、出票和完整结算，可跳过动画。中奖位置每局随机，钢珠实际运动轨迹决定落槽；亮灯数量不等于精确中奖概率。撞钉音效需要点击右上角 ♩ 开启，8×、10× 命中有专属灯光演出。</p>
+      <p><b>⑤ 奖励卡片</b>：每局中奖返还的弹珠每满 50 颗获得 1 张卡片（向下取整、不跨局累计），例如返还 150 颗获得 3 张卡片。卡片可兑换游戏内虚拟外观。</p>
       <p><b>⑥ 余额不足</b>：余额少于 5 颗且没有可用的本局投入时，可在一局结束后免费领取新一份体验弹珠。已经投入但尚未发射的弹珠可退回。</p>
       <p class="rule-warning">仅供单人娱乐。所有弹珠和卡片均为虚拟积分，没有现金价值，不提供真实奖品兑换。</p>
     </div>

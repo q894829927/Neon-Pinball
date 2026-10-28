@@ -40,7 +40,7 @@ export function restoreSave(candidate) {
   const pendingRound = pendingStake >= MIN_STAKE
     ? normalizePendingRound(candidate.pendingRound) : null;
   return {
-    marbles: int(candidate.marbles), cards: int(candidate.cards, 9999),
+    marbles: int(candidate.marbles), cards: int(candidate.cards),
     rounds: int(candidate.rounds), wins: int(candidate.wins),
     best: int(candidate.best), earned: int(candidate.earned),
     redeemed, theme,
@@ -144,7 +144,7 @@ function scoreShot(save, round, stake, slot, funded) {
   if (!Number.isInteger(slot) || slot < 0 || slot >= SLOT_COUNT) throw new Error("Invalid slot");
   const hit = round.lit.includes(slot);
   const reward = hit ? stake * round.multiplier : 0;
-  const newCards = reward >= 50 ? 1 : 0;
+  const newCards = Math.floor(reward / 50);
   return {
     hit, reward, newCards, net: reward - stake,
     save: {
