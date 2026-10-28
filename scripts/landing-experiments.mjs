@@ -42,13 +42,17 @@ async function importPrototype(kind){
   const url="data:text/javascript;base64,"+Buffer.from(code,"utf8").toString("base64");
   return import(url);
 }
-const engines={
+const allEngines={
   E0:baseline,
   E1:await importPrototype("E1"),
   E2:await importPrototype("E2"),
   E3:await importPrototype("E3"),
   E3b:await importPrototype("E3b")
 };
+const selected=(process.env.EXPERIMENT_GROUPS||"E0,E1,E2,E3,E3b").split(",").map(s=>s.trim());
+assert.ok(selected.length>1&&selected[0]==="E0"&&new Set(selected).size===selected.length&&
+  selected.every(id=>Object.hasOwn(allEngines,id)),"Groups must start with E0 and be distinct known variants");
+const engines=Object.fromEntries(selected.map(id=>[id,allEngines[id]]));
 const powers=[.075,.15,.30,.55,.80,1];
 const slotCount=baseline.PHYSICS.slotCount;
 assert.equal(slotCount,11);
@@ -201,10 +205,10 @@ const report={
   bestValidBySlot11:best?.id??null,passed:valid.length===groupResults.length
 };
 const header=[
-  "# E0 / E1 / E2 / E3 / E3b：真实物理落点对照实验",
+  "# "+selected.join(" / ")+"：真实物理落点对照实验",
   "",
   "- 使用生产物理代码，仅在内存中生成实验模块；线上物理逻辑与奖金规则均未修改。",
-  "- E0 当前；E1 / E2 仅将贝塞尔导轨末端及其前一控制点分别左移 10 / 20px（保持末端切线方向）；E3 增加右侧斜向实体导流板 (359,250) → (344,283)；E3b 将导流板缩短并向左收至 (343,250) → (330,273) 以减少靠墙夹球。板半径均 1.15px、接触参数与隔板相同。",
+  "- E0 为线上基线；E1 将导轨出口及前一个贝塞尔控制点左移 10px，E2 左移 20px；E3 是右侧导流板 (359,250)→(344,283)，E3b 为内收导流板 (343,250)→(330,273)。仅本次选中的组："+selected.join(", ")+"。",
   "- 六档发射力度："+powers.join(" / ")+"；每档每组 "+sample+" 次；每组 "+(sample*powers.length)+" 次，四组共 "+(sample*powers.length*4)+" 次物理仿真。",
   "- 所有组使用一组一组**相同的随机种子和发射力度**，最终比较使用配对差分；物理碰撞导致后续随机数调用分歧是实验真实差异。",
   "",
