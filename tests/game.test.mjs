@@ -16,7 +16,7 @@ test("game begins with exactly 100 virtual marbles",()=>{
   assert.equal(save.pendingRound,null);
   assert.deepEqual(MULTIPLIERS,[2,4,6,8,10]);
   assert.equal(SLOT_COUNT,11);
-  assert.deepEqual(MULTIPLIERS.map(winningSlotCount),[4,3,2,1,1]);
+  assert.deepEqual(MULTIPLIERS.map(winningSlotCount),[5,3,3,2,1]);
 });
 
 test("each fresh round chooses valid multiplier-specific red slots",()=>{
@@ -34,7 +34,7 @@ test("each fresh round chooses valid multiplier-specific red slots",()=>{
 
 test("win: 100 - 10 + 10 * 6 = 150",()=>{
   const save=freshSave();
-  const r=settle(save,{multiplier:6,lit:[2,4]},10,4);
+  const r=settle(save,{multiplier:6,lit:[2,4,7]},10,4);
   assert.equal(r.hit,true);
   assert.equal(r.reward,60);
   assert.equal(r.save.marbles,150);
@@ -45,7 +45,7 @@ test("win: 100 - 10 + 10 * 6 = 150",()=>{
 });
 
 test("lose: 100 - 10 = 90, with no card",()=>{
-  const r=settle(freshSave(),{multiplier:6,lit:[2,4]},10,1);
+  const r=settle(freshSave(),{multiplier:6,lit:[2,4,7]},10,1);
   assert.equal(r.hit,false);
   assert.equal(r.reward,0);
   assert.equal(r.save.marbles,90);
@@ -56,7 +56,7 @@ test("card threshold depends on ONE shot winning 50+ marbles",()=>{
   const a=settle(freshSave(),{multiplier:4,lit:[2,4,7]},10,4);
   assert.equal(a.reward,40);
   assert.equal(a.newCards,0);
-  const b=settle(a.save,{multiplier:2,lit:[1,2,4,7]},50,4);
+  const b=settle(a.save,{multiplier:2,lit:[1,2,4,7,9]},50,4);
   assert.equal(b.reward,100);
   assert.equal(b.newCards,1);
   const c=settle(b.save,{multiplier:10,lit:[4]},50,1);
@@ -72,14 +72,15 @@ test("invalid stakes, lack of marbles and invalid slot cannot settle",()=>{
   assert.equal(canAfford(s,4),false);
   assert.equal(canAfford(s,0),false);
   assert.equal(canAfford({...s,marbles:9},10),false);
-  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4]},4,2));
-  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4]},10,-1));
+  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4,7]},4,2));
+  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4,7]},10,-1));
   assert.throws(()=>settle(s,{multiplier:6,lit:[2,2,7]},10,2));
+  assert.throws(()=>settle(s,{multiplier:6,lit:[2,4]},10,2));
   assert.throws(()=>settle(s,{multiplier:99,lit:[2,4,7]},10,2));
 });
 
 test("redeem cards for local, virtual themes only",()=>{
-  const winner=settle(freshSave(),{multiplier:6,lit:[2,4]},10,4);
+  const winner=settle(freshSave(),{multiplier:6,lit:[2,4,7]},10,4);
   const next=redeem(winner.save,"sunset");
   assert.equal(next.cards,0);
   assert.ok(next.redeemed.includes("sunset"));
@@ -398,11 +399,11 @@ test("refunding, resetting and next round cancel the old rolling lamp selection"
 
 
 test("higher payout always has fewer independently selected winning slots",()=>{
-  assert.deepEqual(WIN_SLOTS_BY_MULTIPLIER, {2:4,4:3,6:2,8:1,10:1});
+  assert.deepEqual(WIN_SLOTS_BY_MULTIPLIER, {2:5,4:3,6:3,8:2,10:1});
   assert.equal(SLOT_COUNT,11);
   for(let i=1;i<MULTIPLIERS.length;i++){
     assert.ok(winningSlotCount(MULTIPLIERS[i])<=winningSlotCount(MULTIPLIERS[i-1]));
-    if(MULTIPLIERS[i]<10)assert.ok(winningSlotCount(MULTIPLIERS[i])<winningSlotCount(MULTIPLIERS[i-1]));
+    if(MULTIPLIERS[i]!==6)assert.ok(winningSlotCount(MULTIPLIERS[i])<winningSlotCount(MULTIPLIERS[i-1]));
   }
   assert.throws(()=>winningSlotCount(12));
   for(const multiplier of MULTIPLIERS){
@@ -455,7 +456,7 @@ test("UI previews match the real winning slots instead of fixed 3 red slots",asy
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
   const mobile=readFileSync(new URL("../public/mobile.css",import.meta.url),"utf8");
-  for(const [multiplier,count] of [[2,4],[4,3],[6,2],[8,1],[10,1]]){
+  for(const [multiplier,count] of [[2,5],[4,3],[6,3],[8,2],[10,1]]){
     assert.match(html,new RegExp('data-mult-lamp="'+multiplier+'"'));
     assert.ok(html.includes('<small>'+count+' 槽</small>'));
   }
@@ -518,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.8\.3/);
+  assert.match(html,/class="game-version"[^>]*>v0\.8\.4/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -551,10 +552,10 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
   for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.8.3"'),"Versioned import: "+name);
+    assert.ok(js.includes('"./'+name+'?v=0.8.4"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.3'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.4'));
   }
 });
 
@@ -583,5 +584,5 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.8\.3/);
+  assert.match(html,/class="game-version"[^>]*>v0\.8\.4/);
 });
