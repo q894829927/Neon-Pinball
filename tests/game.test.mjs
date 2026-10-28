@@ -52,17 +52,17 @@ test("lose: 100 - 10 = 90, with no card",()=>{
   assert.equal(r.newCards,0);
 });
 
-test("card threshold depends on ONE shot winning 50+ marbles",()=>{
+test("each shot awards floor(reward/50) cards without carryover",()=>{
   const a=settle(freshSave(),{multiplier:4,lit:[2,4,7,9]},10,4);
   assert.equal(a.reward,40);
   assert.equal(a.newCards,0);
   const b=settle(a.save,{multiplier:2,lit:[1,2,4,7,9]},50,4);
   assert.equal(b.reward,100);
-  assert.equal(b.newCards,1);
+  assert.equal(b.newCards,2);
   const c=settle(b.save,{multiplier:10,lit:[4]},50,1);
   assert.equal(c.reward,0);
   assert.equal(c.newCards,0);
-  assert.equal(c.save.cards,1);
+  assert.equal(c.save.cards,2);
 });
 
 test("invalid stakes, lack of marbles and invalid slot cannot settle",()=>{
@@ -519,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.9\.0/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.0/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -541,7 +541,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   assert.match(js,/cabinet\.getBoundingClientRect\(\)\.height>usableHeight/);
   assert.match(js,/machineSection\.style\.setProperty\("--fitted-cabinet-width"/);
   assert.match(js,/window\.visualViewport\?\.addEventListener\("resize",scheduleMachineFit\)/);
-  assert.doesNotMatch(js,/el\.multiplier|el\.payout|el\.rounds|el\.wins|el\.best|el\.earned|el\.themeName/);
+  assert.doesNotMatch(js,/el\.multiplier|el\.rounds|el\.wins|el\.best|el\.earned|el\.themeName/);
 });
 
 
@@ -551,11 +551,11 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
-  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.9.0"'),"Versioned import: "+name);
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs"]){
+    assert.ok(js.includes('"./'+name+'?v=0.10.0"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.9.0'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.0'));
   }
 });
 
@@ -584,7 +584,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.9\.0/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.0/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -605,4 +605,52 @@ test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
   assert.match(css,/\.shoot-overlay\.is-big-win/);
   assert.match(css,/prefers-reduced-motion:reduce/);
   assert.doesNotMatch(engine,/arcade-feedback|metallicHit|jackpot/);
+});
+
+test("v0.10 card rewards apply independently per round, including jackpot and reload",()=>{
+  const save=freshSave();
+  const cases=[
+    {stake:5,multiplier:2,cards:0,reward:10},
+    {stake:25,multiplier:2,cards:1,reward:50},
+    {stake:25,multiplier:4,cards:2,reward:100},
+    {stake:25,multiplier:6,cards:3,reward:150},
+    {stake:26,multiplier:10,cards:5,reward:260},
+    {stake:50,multiplier:10,cards:10,reward:500}
+  ];
+  for(const entry of cases){
+    const validSlots={2:[0,1,2,3,4],4:[0,1,2,3],6:[0,1,2],8:[0,1],10:[0]}[entry.multiplier];
+    const round={multiplier:entry.multiplier,lit:validSlots};
+    const result=settle(save,round,entry.stake,0);
+    assert.equal(result.reward,entry.reward);
+    assert.equal(result.newCards,entry.cards);
+    assert.equal(result.save.cards,entry.cards);
+    assert.equal(restoreSave(result.save).cards,entry.cards);
+  }
+  const eligible={multiplier:10,lit:[0]};
+  const first=settle({...save,marbles:100},eligible,5,0);
+  const second=settle(first.save,eligible,5,1);
+  assert.equal(first.newCards,1);
+  assert.equal(second.newCards,0);
+  assert.equal(second.save.cards,1,"Remaining 0 marbles from previous round cannot roll over");
+});
+test("mechanical payout is a pure presentation after saved settlement, with skip control",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const code=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  assert.match(code,/save=result.save;persist\(\);/);
+  assert.match(code,/startPayoutCeremony\(result,slot\)/);
+  assert.match(code,/if\(settled\|\|!priorSave\)return/);
+  assert.match(code,/if\(!result.hit\|\|reduceMotion\)/);
+  assert.match(code,/function showFinalResult\(\)/);
+  assert.match(code,/payoutAct\(fx.plan,ms\)/);
+  assert.match(code,/if\(payoutFx\)showFinalResult\(\)/);
+  assert.match(code,/payoutPlan\(\{hit:result.hit,reward:result.reward/);
+  assert.match(html,/id="payoutStage"[^>]*hidden/);
+  assert.match(html,/id="payoutSkip"/);
+  assert.match(html,/id="payoutCoins"/);
+  assert.match(html,/id="payoutTickets"/);
+  assert.match(css,/\.payout-stage\s*\{\s*position:absolute/);
+  assert.match(css,/\.reward-flight-card/);
+  assert.match(html,/每满 50 颗获得 1 张/);
 });

@@ -103,6 +103,10 @@ const {chromium}=require("playwright");
           ()=>!document.querySelector("#shootOverlay").hidden,
           null,{timeout:28000});
         const result=await page.locator("#resultDetail").textContent();
+        assert.equal(await page.locator("#payoutStage").isVisible(),false,
+          "All non-skipped ceremonies must eventually reveal the result");
+        assert.ok(await page.locator("#payoutSkip").count()===1,
+          "Four-act ceremony offers an explicit skip control");
         const winPresentation=await page.evaluate(()=>{
           const overlay=document.querySelector("#shootOverlay");
           const banner=document.querySelector("#jackpotBanner");
