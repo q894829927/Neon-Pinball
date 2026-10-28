@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#0b0c1d">
   <meta name="description" content="单人街机倍率弹珠机">
   <title>星运弹珠局 · Neon Pinball</title>
-  <link rel="stylesheet" href="/games/pinball/style.css?v=0.8.4">
-  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.8.4">
-  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.8.4">
-  <script type="module" src="/games/pinball/game.js?v=0.8.4"></script>
+  <link rel="stylesheet" href="/games/pinball/style.css?v=0.8.5">
+  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.8.5">
+  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.8.5">
+  <script type="module" src="/games/pinball/game.js?v=0.8.5"></script>
 </head>
 <body>
   <div class="ambient glow-left"></div><div class="ambient glow-right"></div>
@@ -71,7 +71,7 @@
           </div>
           <div id="machineLamps" class="machine-lamps" role="group" aria-label="机台顶部倍率灯">
             <span class="mult-lamp" data-mult-lamp="2"><b>2×</b><small>5 槽</small></span>
-            <span class="mult-lamp" data-mult-lamp="4"><b>4×</b><small>3 槽</small></span>
+            <span class="mult-lamp" data-mult-lamp="4"><b>4×</b><small>4 槽</small></span>
             <span class="mult-lamp" data-mult-lamp="6"><b>6×</b><small>3 槽</small></span>
             <span class="mult-lamp" data-mult-lamp="8"><b>8×</b><small>2 槽</small></span>
             <span class="mult-lamp" data-mult-lamp="10"><b>10×</b><small>1 槽</small></span>
@@ -100,7 +100,7 @@
         </div>
       </section>
     </main>
-    <div class="game-version" aria-label="游戏版本">v0.8.4</div>
+    <div class="game-version" aria-label="游戏版本">v0.8.5</div>
   </div>
 
   <dialog id="infoDialog" class="modal">
@@ -108,7 +108,7 @@
     <h2>弹珠机玩法说明</h2>
     <div class="rules-content">
       <p><b>① 逐步投珠</b>：点击 +1、+5 或 +10 颗，将虚拟弹珠投入本局，余额立即扣除。累计投入 5 颗时启动顶部 2×、4×、6×、8×、10× 倍率灯，依次跑灯并逐渐减速，最后停在本局抽中的倍率，中奖红灯槽随之亮起；之后可以继续投注，倍率及红灯槽不变。发射前可退回全部已投弹珠。</p>
-      <p><b>② 抽取奖励</b>：投入满 5 颗时随机确定本局倍率及红灯槽。2倍有5个中奖槽，4倍3个，6倍3个，8倍2个，10倍1个；共11个落珠槽。顶部倍率灯循环减速后揭晓本局结果，每局只抽一次。</p>
+      <p><b>② 抽取奖励</b>：投入满 5 颗时随机确定本局倍率及红灯槽。2倍有5个中奖槽，4倍4个，6倍3个，8倍2个，10倍1个；共11个落珠槽。顶部倍率灯循环减速后揭晓本局结果，每局只抽一次。</p>
       <p><b>③ 发射钢珠</b>：在机台右侧下方按住金色拉杆向下拖动，拉得越远力度越大，松手后发射。也可按住空格键蓄力、松开发射。钢珠发射后不能再控制方向。同样的力度也有轻微的弹簧和金属钉碰撞误差，因此每次轨迹可能不同。</p>
       <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。中奖位置每局随机，钢珠实际运动轨迹决定落槽；亮灯数量不等于精确中奖概率。</p>
       <p><b>⑤ 奖励卡片</b>：单次中奖奖励 ≥ 50 颗额外获得 1 张卡片，卡片可兑换游戏内虚拟外观。</p>
