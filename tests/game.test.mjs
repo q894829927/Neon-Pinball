@@ -552,10 +552,10 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
   for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.8.4"'),"Versioned import: "+name);
+    assert.ok(js.includes('"./'+name+'?v=0.8.5"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.4'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.5'));
   }
 });
 
