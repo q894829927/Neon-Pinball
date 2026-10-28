@@ -519,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.8\.5/);
+  assert.match(html,/class="game-version"[^>]*>v0\.9\.0/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -584,7 +584,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.8\.5/);
+  assert.match(html,/class="game-version"[^>]*>v0\.9\.0/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
