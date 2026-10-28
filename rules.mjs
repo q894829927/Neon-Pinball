@@ -7,7 +7,7 @@ export const MULTIPLIERS = Object.freeze([2, 4, 6, 8, 10]);
 export const SLOT_COUNT = 11;
 // High multipliers have fewer winning mouths. All 11 slots are equally wide,
 // but actual landing probabilities are determined by physical collisions.
-export const WIN_SLOTS_BY_MULTIPLIER = Object.freeze({2:4,4:3,6:2,8:1,10:1});
+export const WIN_SLOTS_BY_MULTIPLIER = Object.freeze({2:5,4:3,6:3,8:2,10:1});
 export function winningSlotCount(multiplier) {
   if (!Object.hasOwn(WIN_SLOTS_BY_MULTIPLIER, multiplier)) throw new Error("Invalid multiplier");
   return WIN_SLOTS_BY_MULTIPLIER[multiplier];
