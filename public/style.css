@@ -242,3 +242,34 @@ body{
   .bet-choice{transition:none}
   .mult-lamp.is-final{animation:none}
 }
+
+/* v0.9.0 — impact-driven glow and high-multiplier celebrations. */
+.shoot-overlay.is-win{background:#08091a9c;backdrop-filter:blur(2.5px)}
+.shoot-overlay.is-big-win{background:radial-gradient(ellipse at 50% 40%,#6b355868,#08091ab8 70%);backdrop-filter:blur(2px)}
+.shoot-overlay.is-big-win .result-card{
+  position:relative;isolation:isolate;overflow:hidden;
+  border:2px solid #ffe1a9;
+  background:linear-gradient(142deg,#573347,#17182c 68%);
+  box-shadow:0 0 0 2px #fff0c12b,0 0 50px #ffbc6b9e,0 22px 70px #050512d9;
+  animation:jackpotArrival .68s cubic-bezier(.16,.9,.24,1) both,jackpotCardGlow 1.4s ease-in-out 1s infinite alternate;
+}
+.shoot-overlay.is-big-win .result-card::before{
+  content:"";position:absolute;inset:-50%;z-index:0;pointer-events:none;
+  background:conic-gradient(from 0deg,transparent 0 12%,#ffe0a628 17%,transparent 23% 43%,#f99cc12e 52%,transparent 58% 72%,#ffe1a62a 82%,transparent 92%);
+  animation:jackpotRaySpin 9s linear infinite;
+}
+.shoot-overlay.is-big-win .result-card>*{position:relative;z-index:1}
+.shoot-overlay.is-big-win .result-number{color:#fff3b4;text-shadow:0 0 15px #ffb66f,0 0 30px #e66f8899}
+.shoot-overlay.is-big-win .result-stamp{border-color:#ffe4af;color:#fff6d5;box-shadow:0 0 16px #ffbd7875}
+.shoot-overlay[data-jackpot="legendary"] .result-card{border-color:#fff8c5;box-shadow:0 0 0 2px #fff4af4a,0 0 65px #ffc45bc9,0 22px 70px #050512d9}
+.jackpot-banner{font:900 clamp(15px,2.8vw,21px) "Space Grotesk",sans-serif;letter-spacing:1.4px;color:#fff2cb;
+  text-shadow:0 0 10px #f9ba77,0 0 25px #ff759b;margin:0 auto 8px;
+  animation:jackpotBannerGlow .8s ease-in-out infinite alternate}
+@keyframes jackpotArrival{0%{opacity:0;transform:scale(.78) translateY(15px)}75%{opacity:1;transform:scale(1.055)}100%{transform:scale(1)}}
+@keyframes jackpotRaySpin{to{transform:rotate(360deg)}}
+@keyframes jackpotCardGlow{from{filter:brightness(1)}to{filter:brightness(1.19)}}
+@keyframes jackpotBannerGlow{from{opacity:.84;text-shadow:0 0 10px #f9ba77}to{opacity:1;text-shadow:0 0 18px #ffe18e,0 0 35px #ff7a91}}
+@media(prefers-reduced-motion:reduce){
+  .shoot-overlay.is-big-win .result-card,.shoot-overlay.is-big-win .result-card::before,
+  .jackpot-banner{animation:none!important}
+}

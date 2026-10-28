@@ -551,11 +551,11 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
-  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.8.5"'),"Versioned import: "+name);
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs"]){
+    assert.ok(js.includes('"./'+name+'?v=0.9.0"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.8.5'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.9.0'));
   }
 });
 
@@ -585,4 +585,24 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
   assert.match(html,/class="game-version"[^>]*>v0\.8\.5/);
+});
+
+test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  const engine=readFileSync(new URL("../public/physics-engine.mjs",import.meta.url),"utf8");
+  assert.match(game,/function metallicHit\(impact\)/);
+  assert.match(game,/impactVisuals\(state\.impacts\)/);
+  assert.match(game,/trailOpacity\(i,trail\.length,q\.speed\)/);
+  assert.match(game,/slotPulseStrength\(slotPulse\.life,slotPulse\.total\)/);
+  assert.match(game,/jackpotTier\(result\.hit,round\.multiplier\)/);
+  assert.match(game,/FEEDBACK\.impactCooldownMs/);
+  assert.match(game,/if\(reduceMotion\)return/);
+  assert.match(game,/aria-label",soundEnabled\?"关闭音效":"开启音效"/);
+  assert.match(html,/id="jackpotBanner"[^>]*hidden/);
+  assert.match(css,/\.shoot-overlay\.is-big-win/);
+  assert.match(css,/prefers-reduced-motion:reduce/);
+  assert.doesNotMatch(engine,/arcade-feedback|metallicHit|jackpot/);
 });
