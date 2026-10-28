@@ -1,12 +1,13 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.8.5";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.8.5";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.8.5";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.8.5";
-import {createPegLayout} from "./board-layout.mjs?v=0.8.5";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.8.5";
+} from "./rules.mjs?v=0.9.0";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.9.0";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.9.0";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.9.0";
+import {createPegLayout} from "./board-layout.mjs?v=0.9.0";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.9.0";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.9.0";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -51,19 +52,80 @@ let ball=null,trail=[],lastTime=0,accumulator=0,elapsed=0;
 let charging=false,charge=0,chargeStarted=0,chargeMode=null,dragPointerId=null,dragStartY=0;
 let shotStake=0,priorSave=null,settled=false,shotVelocity=null;
 let soundEnabled=false,audioContext=null,floatingUntil=0,particles=[],screenShake=0;
+let collisionNoise=null,lastImpactSoundAt=-Infinity,impactFlashes=[],slotPulse=null;
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(save));}catch{}}
-function beep(f=520,d=.08,type="sine",volume=.05){
+function beep(f=520,d=.08,type="sine",volume=.05,delay=0){
   if(!soundEnabled)return;
   try{
     if(!audioContext)audioContext=new(window.AudioContext||window.webkitAudioContext)();
     if(audioContext.state==="suspended")audioContext.resume();
     const o=audioContext.createOscillator(),gain=audioContext.createGain();
-    o.type=type;o.frequency.setValueAtTime(f,audioContext.currentTime);
-    o.frequency.exponentialRampToValueAtTime(Math.max(60,f*.65),audioContext.currentTime+d);
-    gain.gain.setValueAtTime(volume,audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(.0001,audioContext.currentTime+d);
-    o.connect(gain).connect(audioContext.destination);o.start();o.stop(audioContext.currentTime+d);
+    const start=audioContext.currentTime+delay;
+    o.type=type;o.frequency.setValueAtTime(f,start);
+    o.frequency.exponentialRampToValueAtTime(Math.max(60,f*.65),start+d);
+    gain.gain.setValueAtTime(Math.max(.0001,volume),start);
+    gain.gain.exponentialRampToValueAtTime(.0001,start+d);
+    o.connect(gain).connect(audioContext.destination);o.start(start);o.stop(start+d);
   }catch{}
+}
+/** Two slightly inharmonic partials plus brief filtered noise create a steel strike.
+ * All pitch randomness is cosmetic; it never shares the physics RNG. */
+function metallicHit(impact){
+  if(!soundEnabled)return;
+  const profile=metalImpactProfile(impact.speed,impact.bumper,Math.random());
+  if(!profile)return;
+  const now=performance.now();
+  if(now-lastImpactSoundAt<FEEDBACK.impactCooldownMs)return;
+  lastImpactSoundAt=now;
+  try{
+    if(!audioContext)audioContext=new(window.AudioContext||window.webkitAudioContext)();
+    if(audioContext.state==="suspended")void audioContext.resume();
+    const ac=audioContext,start=ac.currentTime;
+    const envelope=ac.createGain();
+    envelope.gain.setValueAtTime(profile.gain,start);
+    envelope.gain.exponentialRampToValueAtTime(.0001,start+profile.duration);
+    envelope.connect(ac.destination);
+    for(const [ratio,type] of [[1,"sine"],[2.73,"triangle"]]){
+      const oscillator=ac.createOscillator();
+      oscillator.type=type;
+      oscillator.frequency.setValueAtTime(profile.frequency*ratio,start);
+      oscillator.frequency.exponentialRampToValueAtTime(profile.frequency*ratio*.88,start+profile.duration);
+      oscillator.connect(envelope);
+      oscillator.start(start);oscillator.stop(start+profile.duration+.002);
+    }
+    // Small reusable noise buffer gives a realistic click without fetching audio.
+    if(!collisionNoise){
+      collisionNoise=ac.createBuffer(1,Math.floor(ac.sampleRate*.05),ac.sampleRate);
+      const data=collisionNoise.getChannelData(0);
+      let seed=0x2f7a3bc1;
+      for(let i=0;i<data.length;i++){
+        seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;
+        data[i]=((seed>>>0)/2147483648-1)*(1-i/data.length);
+      }
+    }
+    const src=ac.createBufferSource(),filter=ac.createBiquadFilter(),noiseGain=ac.createGain();
+    src.buffer=collisionNoise;
+    filter.type="bandpass";filter.frequency.value=1800+profile.frequency*1.6;
+    filter.Q.value=.9;
+    noiseGain.gain.value=profile.bumper?.24:.42;
+    src.connect(filter).connect(noiseGain).connect(envelope);
+    src.start(start);src.stop(start+Math.min(.049,profile.duration));
+  }catch{/* Audio is optional; never stop physics rendering. */}
+}
+function impactVisuals(impacts){
+  if(impacts.length===0)return;
+  const hit=impacts.reduce((a,b)=>a.speed>b.speed?a:b);
+  if(hit.speed>=FEEDBACK.minAudibleImpact)metallicHit(hit);
+  if(reduceMotion)return;
+  if(hit.speed>90)screenShake=Math.max(screenShake,Math.min(2.0,hit.speed/320));
+  for(const impact of impacts){
+    if(impact.speed<65)continue;
+    if(impactFlashes.length<FEEDBACK.maxImpactFlashes)
+      impactFlashes.push({x:impact.x,y:impact.y,life:impact.bumper?.34:.20,
+        total:impact.bumper?.34:.20,force:Math.min(1,impact.speed/950),bumper:impact.bumper});
+    if(impact.bumper&&impact.speed>70)
+      burst(impact.x,impact.y,palette[save.theme].sky,Math.min(8,3+Math.floor(impact.speed/190)));
+  }
 }
 function notify(msg,d=1400){
   floatingUntil=performance.now()+d;
@@ -228,12 +290,13 @@ function releaseCharge(){
   // clears the pending stake so a reload cannot replay a fired shot.
   save=commitShot(save);
   priorSave={...save,redeemed:[...save.redeemed]};persist();
-  phase="shooting";settled=false;elapsed=0;trail=[];particles=[];
+  phase="shooting";settled=false;elapsed=0;trail=[];particles=[];impactFlashes=[];slotPulse=null;lastImpactSoundAt=-Infinity;
   ball=physicalBall;
   beep(370+power*210,.23,"sawtooth",.045);notify("GOOD LUCK! ✦",850);refresh();
 }
 function burst(x,y,color,n=8){
-  for(let k=0;k<n;k++){
+  if(reduceMotion)return;
+  for(let k=0;k<Math.min(n,FEEDBACK.maxParticles-particles.length);k++){
     const a=Math.random()*Math.PI*2,s=40+Math.random()*180;
     particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
       life:.35+Math.random()*.35,color});
@@ -244,21 +307,16 @@ function advance(dt){
     elapsed+=dt;
     const state=stepPhysicalBall(ball,dt,{pegs,bumpers});
     if(state.entered)burst(ball.x,ball.y,palette[save.theme].gold,6);
-    if(state.impacts.length){
-      // All effects derive from physical contacts, never independently shove the ball.
-      const hit=state.impacts.reduce((a,b)=>a.speed>b.speed?a:b);
-      if(hit.speed>68){
-        beep(320+Math.min(850,hit.speed*.7),.045,"sine",.014);
-        screenShake=Math.max(screenShake,Math.min(2.4,hit.speed/250));
-      }
-      for(const impact of state.impacts)
-        if(impact.bumper&&impact.speed>50&&Math.random()<.25)
-          burst(impact.x,impact.y,palette[save.theme].sky,3);
+    if(state.impacts.length)impactVisuals(state.impacts);
+    if(!reduceMotion){
+      trail.push({x:ball.x,y:ball.y,speed:Math.hypot(ball.vx,ball.vy)});
+      if(trail.length>FEEDBACK.maxTrailPoints)trail.shift();
     }
-    trail.push({x:ball.x,y:ball.y});
-    if(trail.length>11)trail.shift();
     if(state.settled){beep(450,.10,"triangle",.045);finishShot(state.slot);}
   }
+  impactFlashes=impactFlashes.filter(p=>p.life>0);
+  for(const flash of impactFlashes)flash.life-=dt;
+  if(slotPulse)slotPulse.life=Math.max(0,slotPulse.life-dt);
   particles=particles.filter(p=>p.life>0);
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=200*dt;p.life-=dt;}
   screenShake=Math.max(0,screenShake-10*dt);
@@ -268,7 +326,16 @@ function finishShot(slot){
   settled=true;
   const result=settleFunded(priorSave,round,shotStake,slot);
   save=result.save;persist();phase="result";
-  el.resultStamp.textContent=result.hit?"JACKPOT · NICE SHOT":"TRY AGAIN · NEXT BALL";
+  const tier=jackpotTier(result.hit,round.multiplier);
+  el.overlay.classList.toggle("is-win",result.hit);
+  el.overlay.classList.toggle("is-big-win",Boolean(tier));
+  el.overlay.dataset.jackpot=tier||"";
+  const jackpotBanner=$("jackpotBanner");
+  jackpotBanner.hidden=!tier;
+  jackpotBanner.textContent=tier==="legendary"?"✦ LEGENDARY 10× ✦":"✦ SUPER JACKPOT 8× ✦";
+  slotPulse=result.hit&&!reduceMotion?{slot,life:2.7,total:2.7}:null;
+  el.resultStamp.textContent=tier?"ULTRA WIN · "+round.multiplier+"×":
+    result.hit?"JACKPOT · NICE SHOT":"TRY AGAIN · NEXT BALL";
   el.resultTitle.textContent=result.hit?"红灯命中！":"没有命中红灯";
   el.resultNumber.classList.toggle("loss",!result.hit);
   el.resultNumber.innerHTML=result.hit?
@@ -279,8 +346,14 @@ function finishShot(slot){
   el.cardEarned.hidden=result.newCards===0;
   el.next.textContent=save.marbles<MIN_STAKE?"领取体验弹珠，重新开始 →":"下一局 →";
   el.overlay.hidden=false;
-  if(result.hit){beep(780,.25,"triangle",.065);burst(ball.x,ball.y,palette[save.theme].gold,26);}
-  else beep(190,.18,"sawtooth",.035);
+  if(result.hit){
+    burst(ball.x,ball.y,palette[save.theme].gold,tier?54:26);
+    if(tier){
+      beep(620,.16,"triangle",.055,0);
+      beep(830,.18,"triangle",.052,.12);
+      beep(1100,.35,"sine",.065,.26);
+    }else beep(780,.25,"triangle",.065);
+  }else beep(190,.18,"sawtooth",.035);
   refresh();
 }
 function nextRound(){
@@ -291,7 +364,10 @@ function nextRound(){
   revealState=round?"revealed":"hidden";
   lampRoll={steps:[],step:-1,nextAt:0};
   charge=0;charging=false;chargeMode=null;dragPointerId=null;
-  ball=null;trail=[];settled=false;priorSave=null;shotStake=0;shotVelocity=null;
+  ball=null;trail=[];impactFlashes=[];slotPulse=null;
+  el.overlay.classList.remove("is-win","is-big-win");
+  el.overlay.dataset.jackpot="";
+  settled=false;priorSave=null;shotStake=0;shotVelocity=null;
   updatePower();phase="ready";el.overlay.hidden=true;refresh();
 }
 function renderGifts(){
@@ -491,6 +567,17 @@ function draw(timestamp){
     ctx.shadowBlur=0;circle(b.x,b.y,b.r,p.red);circle(b.x,b.y,b.r-4,"#3d243f");
     label("★",b.x,b.y+4,13,p.gold,"center","700");
   }
+  // Collision rings are keyed to actual reported contact positions.
+  if(!reduceMotion)for(const flash of impactFlashes){
+    const t=Math.max(0,flash.life/flash.total);
+    ctx.save();ctx.globalCompositeOperation="screen";ctx.globalAlpha=Math.min(.85,t*(.35+flash.force*.5));
+    const color=flash.bumper?p.gold:p.sky;
+    ctx.shadowColor=color;ctx.shadowBlur=flash.bumper?19:10;
+    ctx.strokeStyle=color;ctx.lineWidth=flash.bumper?2.8:1.5;
+    ctx.beginPath();ctx.arc(flash.x,flash.y,(flash.bumper?17:8)+(1-t)*15,0,Math.PI*2);ctx.stroke();
+    circle(flash.x,flash.y,(flash.bumper?15:5)*t,color);
+    ctx.restore();
+  }
   line(26,588,53,616,p.gold+"88",3);line(366,588,344,617,p.gold+"88",3);
   for(let i=0;i<SLOT_COUNT;i++){
     const x=SLOT_LEFT+i*SLOT_W,lit=Boolean(revealState==="revealed"&&round&&round.lit.includes(i));
@@ -500,8 +587,14 @@ function draw(timestamp){
     activeGradient.addColorStop(.6,lit?"#49233d":"#10182a");
     activeGradient.addColorStop(1,lit?"#ae5364":"#212c40");
     rounded(x+1,SLOT_TOP+8,SLOT_W-2,77,3,activeGradient,lit?"#ff9390":"#57657e76");
+    const strength=slotPulse?.slot===i?slotPulseStrength(slotPulse.life,slotPulse.total):0;
+    if(strength>0){
+      ctx.save();ctx.globalAlpha=.23+.6*strength;ctx.shadowColor=p.red;
+      ctx.shadowBlur=12+24*strength;rounded(x+1,SLOT_TOP+6,SLOT_W-2,80,3,p.red);
+      ctx.restore();
+    }
     if(lit){
-      ctx.shadowColor=p.red;ctx.shadowBlur=9;
+      ctx.shadowColor=p.red;ctx.shadowBlur=9+20*strength;
       rounded(x+3,SLOT_TOP+11,SLOT_W-6,4,2,"#ffab9c");
       ctx.shadowBlur=0;
       circle(center,SLOT_TOP+72,7,p.red);
@@ -531,11 +624,21 @@ function draw(timestamp){
   if(phase==="ready"){marble(LANE,606+Math.sin(timestamp/310)*1.1,R,p);
     label("READY",391,581,8,p.gold,"center","700");}
   if(ball){
-    for(let i=0;i<trail.length;i++){
-      const q=trail[i];ctx.globalAlpha=i/trail.length*.13;
-      circle(q.x,q.y,R*(.3+i/trail.length*.5),p.sky);
+    if(!reduceMotion&&trail.length>1){
+      ctx.save();ctx.globalCompositeOperation="screen";
+      ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=p.sky;
+      for(let i=1;i<trail.length;i++){
+        const q=trail[i],prev=trail[i-1];
+        ctx.globalAlpha=trailOpacity(i,trail.length,q.speed);
+        ctx.lineWidth=1+4*i/trail.length;
+        ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(q.x,q.y);ctx.stroke();
+      }
+      ctx.globalAlpha=.15;
+      const latest=trail[trail.length-1];
+      circle(latest.x,latest.y,R+5,p.sky);
+      ctx.restore();
     }
-    ctx.globalAlpha=1;marble(ball.x,ball.y,R,p);
+    marble(ball.x,ball.y,R,p);
   }
   for(const part of particles){ctx.globalAlpha=Math.min(1,part.life*2);
     circle(part.x,part.y,2.3,part.color);}
@@ -652,6 +755,8 @@ $("soundBtn").addEventListener("click",event=>{
   soundEnabled=!soundEnabled;
   event.currentTarget.setAttribute("aria-pressed",String(soundEnabled));
   event.currentTarget.textContent=soundEnabled?"♫":"♩";
+  event.currentTarget.setAttribute("aria-label",soundEnabled?"关闭音效":"开启音效");
+  event.currentTarget.title=soundEnabled?"关闭音效":"开启音效";
   if(soundEnabled)beep(620,.1);
 });
 $("helpBtn").addEventListener("click",()=>el.info.showModal());
@@ -663,7 +768,7 @@ $("resetBtn").addEventListener("click",()=>{
   if(!confirm("确定清空所有虚拟弹珠、奖励卡和主题吗？此操作无法撤销。"))return;
   save=freshSave();round=null;stake=0;phase="ready";revealState="hidden";
   lampRoll={steps:[],step:-1,nextAt:0};
-  ball=null;trail=[];charge=0;charging=false;chargeMode=null;dragPointerId=null;
+  ball=null;trail=[];impactFlashes=[];slotPulse=null;charge=0;charging=false;chargeMode=null;dragPointerId=null;
   priorSave=null;settled=false;shotVelocity=null;
   persist();updatePower();refresh();el.shop.close();el.overlay.hidden=true;
 });

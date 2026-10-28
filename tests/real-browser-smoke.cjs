@@ -38,6 +38,16 @@ const {chromium}=require("playwright");
       const response=await page.goto("http://127.0.0.1:8766/games/pinball/",{waitUntil:"networkidle",timeout:25000});
       assert.equal(response.status(),200);
       await page.waitForTimeout(1200);
+      if(profile.name==="desktop"||profile.name==="phone"){
+        const sound=page.locator("#soundBtn");
+        assert.equal(await sound.getAttribute("aria-pressed"),"false");
+        await sound.click();
+        assert.equal(await sound.getAttribute("aria-pressed"),"true");
+        assert.equal(await sound.getAttribute("aria-label"),"关闭音效");
+        await sound.click();
+        assert.equal(await sound.getAttribute("aria-pressed"),"false");
+        assert.equal(await sound.getAttribute("aria-label"),"开启音效");
+      }
       const evidence=await page.evaluate(()=>{
         const canvas=document.querySelector("#board");
         const rect=canvas.getBoundingClientRect();
@@ -89,6 +99,16 @@ const {chromium}=require("playwright");
           ()=>!document.querySelector("#shootOverlay").hidden,
           null,{timeout:28000});
         const result=await page.locator("#resultDetail").textContent();
+        const winPresentation=await page.evaluate(()=>{
+          const overlay=document.querySelector("#shootOverlay");
+          const banner=document.querySelector("#jackpotBanner");
+          return {big:overlay.classList.contains("is-big-win"),
+            bannerVisible:!banner.hidden,
+            win:overlay.classList.contains("is-win")};
+        });
+        assert.equal(winPresentation.big,winPresentation.bannerVisible,
+          "Jackpot banner and special overlay must be synchronized");
+        assert.ok(!winPresentation.big||winPresentation.win,"Big win is only available after a hit");
         assert.match(result,/颗|槽/);
         assert.deepEqual(errors,[],"No runtime errors after physics settlement");
         await page.screenshot({path:"/tmp/pinball-finished-shot.png",fullPage:true});
