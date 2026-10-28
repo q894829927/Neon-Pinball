@@ -27,7 +27,7 @@ const {chromium}=require("playwright");
             localStorage.setItem("neon-pinball-arcade-v1",JSON.stringify({
               marbles:1034,cards:2,rounds:18,wins:6,best:160,earned:900,
               redeemed:[],theme:"classic",pendingStake:16,
-              pendingRound:{multiplier:8,lit:[3]},
+              pendingRound:{multiplier:8,lit:[3,5]},
             }));
           }catch{}
         });
