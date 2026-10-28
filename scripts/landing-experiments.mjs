@@ -17,7 +17,7 @@ const replacementImport='from "'+variationUrl+'"';
 const originalImport='from "./physics-variation.mjs?v=0.8.0"';
 assert.equal(source.split(originalImport).length,2,"Production variation import changed");
 const baseSource=source.replace(originalImport,replacementImport);
-const railPattern="3*v*v*u*364+u*u*u*345";
+const railPattern="3*v*u*u*364+u*u*u*345";
 const dividerPattern="// Each divider exists as a full vertical capsule rather than a top pin.";
 assert.equal(baseSource.split(railPattern).length,2,"Rail geometry changed; review experiment");
 assert.equal(baseSource.split(dividerPattern).length,2,"Divider position changed; review experiment");
@@ -26,7 +26,7 @@ function variantSource(kind){
   if(kind==="E1"||kind==="E2"){
     const shift=kind==="E1"?10:20;
     return baseSource.replace(railPattern,
-      "3*v*v*u*"+(364-shift)+"+u*u*u*"+(345-shift));
+      "3*v*u*u*"+(364-shift)+"+u*u*u*"+(345-shift));
   }
   if(kind==="E3"){
     // Collision in both substeps, with same restitution/friction as a divider.
