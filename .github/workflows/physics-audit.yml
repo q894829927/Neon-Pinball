@@ -1,0 +1,41 @@
+name: Physics and probability audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/physics-probability-audit.mjs'
+      - '.github/workflows/physics-audit.yml'
+      - 'public/physics-engine.mjs'
+      - 'public/physics-variation.mjs'
+      - 'public/board-layout.mjs'
+      - 'public/plunger.mjs'
+      - 'public/rules.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  comprehensive-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests
+        run: node --test tests/*.test.mjs
+      - name: Seeded production physics and reward audit
+        env:
+          PHYSICS_SHOTS_PER_POWER: '1000'
+          PROBABILITY_ROUNDS: '250000'
+        run: |
+          node scripts/physics-probability-audit.mjs
+          cat audit-output/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Save reproducible audit data and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: physics-probability-audit
+          path: audit-output/
+          if-no-files-found: warn
+          retention-days: 30
