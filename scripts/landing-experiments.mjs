@@ -58,7 +58,7 @@ const slotCount=baseline.PHYSICS.slotCount;
 assert.equal(slotCount,11);
 for(const id of ["E1","E2"]){
   const shift=id==="E1"?10:20;
-  const end=engines[id].sampleRail(engines[id].RAIL_LENGTH);
+  const end=allEngines[id].sampleRail(allEngines[id].RAIL_LENGTH);
   assert.ok(Math.abs(end.x-(345-shift))<.01,"Endpoint geometry error for "+id);
   assert.ok(Math.abs(end.y-133)<.01,"Endpoint y must not move");
 }
