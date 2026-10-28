@@ -2,8 +2,8 @@
 
 此次验收使用正式物理引擎和中奖判定模块，不采用替代物理模拟器。
 
-- 六档拉杆力度：0.075、0.15、0.30、0.55、0.80、1.00，各 1000 次，共 6000 次真实代码完整落槽仿真。
-- 规则概率：250000 局固定种子抽样，独立于弹珠物理随机数；中奖槽及倍率均由正式 createRound 决定。
+- 六档拉杆力度：0.075、0.15、0.30、0.55、0.80、1.00，各 16667 次，共 100002 次真实代码完整落槽仿真。
+- 规则概率：1000000 局固定种子抽样，独立于弹珠物理随机数；中奖槽及倍率均由正式 createRound 决定。
 - 真实指标：11 槽落点频率、进入钉阵/落槽次数、超时、非有限位置或速度、跨越边界、异常大位移、终点隔板重叠、各档落槽时长 P50/P95/P99。
 - 概率指标：抽到每一种倍率的次数，11 个槽被选为中奖红灯的频率、各档命中率、理论与实测返还倍数。
 - 结果：工作流生成 audit-output/report.md 和 audit-output/audit.json，通过 GitHub Actions 的产物（Artifacts）保存。
@@ -14,6 +14,6 @@
 复现（Node.js 22）：
 
     node --test tests/*.test.mjs
-    PHYSICS_SHOTS_PER_POWER=1000 PROBABILITY_ROUNDS=250000 node scripts/physics-probability-audit.mjs
+    PHYSICS_SHOTS_PER_POWER=16667 PROBABILITY_ROUNDS=1000000 node scripts/physics-probability-audit.mjs
 
 本报告只验证二维模型的数值稳定性与游戏规则公平性，不等于对真实三维钢珠和机台的物理实验标定。

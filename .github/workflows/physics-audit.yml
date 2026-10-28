@@ -26,8 +26,8 @@ jobs:
         run: node --test tests/*.test.mjs
       - name: Seeded production physics and reward audit
         env:
-          PHYSICS_SHOTS_PER_POWER: '1000'
-          PROBABILITY_ROUNDS: '250000'
+          PHYSICS_SHOTS_PER_POWER: '16667'
+          PROBABILITY_ROUNDS: '1000000'
         run: |
           node scripts/physics-probability-audit.mjs
           cat audit-output/report.md >> "$GITHUB_STEP_SUMMARY"
