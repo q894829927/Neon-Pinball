@@ -1,15 +1,15 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.10.5";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.5";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.5";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.5";
-import {createPegLayout} from "./board-layout.mjs?v=0.10.5";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.5";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.5";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.5";
-import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld} from "./payout-physics.mjs?v=0.10.5";
+} from "./rules.mjs?v=0.10.6";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.6";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.6";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.6";
+import {createPegLayout} from "./board-layout.mjs?v=0.10.6";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.6";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.6";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.6";
+import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld} from "./payout-physics.mjs?v=0.10.6";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -39,6 +39,7 @@ const el={balance:$("balance"),cards:$("cards"),status:$("launchStatus"),
   payoutCounter:$("payoutCounter"),payoutEarnings:$("payoutEarnings"),
   payoutSkip:$("payoutSkip"),
   payoutBasin:$("payoutBasin"),payoutCoins:$("payoutCoins"),
+  payoutReceiver:$("payoutReceiver"),
   payoutInventory:$("payoutInventory"),
   ticketDispenser:$("ticketDispenser"),
   payoutTickets:$("payoutTickets"),payoutCardCount:$("payoutCardCount"),
@@ -343,16 +344,23 @@ function advance(dt){
  * "instant" fast-forwards those same collisions when animations are skipped.
  */
 function paintBasinMarbles(count,total,instant=false){
-  const canvas=el.payoutInventory,w=el.payoutBasin.clientWidth,h=el.payoutBasin.clientHeight;
+  // Render into the full payout receiver, not a canvas clipped by the basin.
+  // A fixed-size bead can rise over the glass rim or spill sideways.
+  const canvas=el.payoutInventory,receiver=el.payoutReceiver.getBoundingClientRect(),
+    basin=el.payoutBasin.getBoundingClientRect();
+  const w=receiver.width,h=receiver.height;
   if(w<12||h<8)return;
+  const tray={left:basin.left-receiver.left,right:basin.right-receiver.left,
+    top:basin.top-receiver.top,bottom:basin.bottom-receiver.top};
   const now=performance.now();
   if(!payoutDisplayState||payoutDisplayState.total!==total){
-    payoutDisplayState={count:0,total,world:createPayoutWorld(w,h,total),
+    payoutDisplayState={count:0,total,world:createPayoutWorld(w,h,total,tray),
       lastAt:now,lastDraw:0,settleUntil:0};
   }
   const display=payoutDisplayState,world=display.world;
-  if(Math.abs(world.width-w)>.5||Math.abs(world.height-h)>.5)
-    reflowPayoutWorld(world,w,h);
+  if(Math.abs(world.width-w)>.5||Math.abs(world.height-h)>.5||
+     Math.abs(world.tray.top-tray.top)>.5||Math.abs(world.tray.left-tray.left)>.5)
+    reflowPayoutWorld(world,w,h,tray);
   display.count=Math.min(total,Math.max(0,Math.floor(count)));
   const visible=world.visible;
   const target=Math.min(visible,Math.floor(display.count*visible/total));
