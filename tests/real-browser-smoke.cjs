@@ -103,24 +103,31 @@ const {chromium}=require("playwright");
       });
       assert.ok(Math.abs(outletGeometry.width-outletGeometry.height)<1,"Payout nozzle must be circular");
       assert.ok(outletGeometry.borderRadius.includes("%"),"Metal payout nozzle must have full circular rounding");
+      const labelClearance=await page.evaluate(()=>{
+        const label=document.querySelector(".payout-receiver-name").getBoundingClientRect();
+        const hole=document.querySelector(".payout-marble-mouth").getBoundingClientRect();
+        return {clearance:hole.top-label.bottom,diameter:hole.width};
+      });
+      assert.ok(labelClearance.clearance>=0,"Payout nozzle must not cover its title");
+      assert.ok(labelClearance.diameter<=16,"Payout nozzle must be visually small and recessed");
       assert.equal(outletGeometry.inventoryExists,true);
       assert.ok(outletGeometry.canvasBox.width>=16&&outletGeometry.canvasBox.height>=10,
         "Marble canvas must remain visible even in tiny landscape cabinets");
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
-          const {basinPacking,basinPosition}=await import("/games/pinball/payout-basin.mjs?v=0.10.2");
+          const {createFallenPile}=await import("/games/pinball/payout-pile.mjs?v=0.10.3");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
-          const plan=basinPacking(tray.width,tray.height,500);
-          if(plan.visible!==500)return {ok:false,count:plan.visible};
-          const loc=Array.from({length:500},(_,i)=>basinPosition(i,plan,tray.width,tray.height));
-          return {ok:loc.every(p=>p.x>0&&p.x<tray.width&&p.y>0&&p.y<tray.height),
-            count:loc.length};
+          const pile=createFallenPile(tray.width,tray.height,500);
+          const small=createFallenPile(tray.width,tray.height,10);
+          return {ok:pile.balls.every(p=>p.x>0&&p.x<tray.width&&p.y>0&&p.y<tray.height)
+             &&new Set(small.balls.map(p=>p.y.toFixed(2))).size>=2,
+            count:pile.balls.length};
         });
         assert.equal(payoutLayout.ok,true,"500 earned credits must show 500 basin beads");
         assert.equal(payoutLayout.count,500);
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.2");
+            "/games/pinball/payout-tray.mjs?v=0.10.3");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
