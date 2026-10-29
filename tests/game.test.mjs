@@ -519,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.3/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.4/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -552,10 +552,10 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
   for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-pile.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.10.3"'),"Versioned import: "+name);
+    assert.ok(js.includes('"./'+name+'?v=0.10.4"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.3'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.4'));
   }
 });
 
@@ -584,7 +584,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.3/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.4/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -705,7 +705,7 @@ test("reduced-motion payout keeps all credited marbles and collected tickets vis
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
   assert.match(game,/if\(reduceMotion\)\{[\s\S]*?paintBasinMarbles\(plan.reward,plan.reward\)/);
-  assert.match(game,/if\(plan.newCards\)printRewardTickets\(\{plan\}\)/);
+  assert.match(game,/showFinalResult\(\);/);
   assert.match(css,/prefers-reduced-motion:reduce/);
 });
 test("v0.10.3 keeps falling positions at payout completion, and nozzle does not cover label",async()=>{
@@ -719,4 +719,25 @@ test("v0.10.3 keeps falling positions at payout completion, and nozzle does not 
   assert.match(code,/paintBasinMarbles\(fx\.plan.reward,fx\.plan.reward\)/);
   assert.doesNotMatch(code,/basinPosition\(i,packing,w,h\)/);
   assert.match(css,/\.payout-marble-mouth::before\{display:none!important\}/);
+});
+
+test("ticket chute empties when payout finishes or is skipped, without changing awarded cards",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  assert.match(js,/function clearPrintedTickets\(\)\{\s*el\.payoutTickets\.replaceChildren\(\)/);
+  assert.match(js,/card\.addEventListener\("animationend",event=>/);
+  assert.match(js,/if\(!el\.payoutTickets\.childElementCount\)clearPrintedTickets\(\)/);
+  assert.match(js,/function showFinalResult\(\)[\s\S]*?clearPrintedTickets\(\);\s*payoutFx=null/);
+  assert.doesNotMatch(js,/if\(fx\.plan\.newCards&&!fx\.flewTickets\)/);
+  assert.match(js,/if\(reduceMotion\)\{[\s\S]*?showFinalResult\(\)/);
+});
+test("winner summary reserves a separate next-round row and a compact jackpot line",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  assert.match(html,/class="payout-status-content"/);
+  assert.match(html,/class="result-primary"/);
+  assert.match(css,/\.machine-inline-summary\{\s*display:grid;grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(css,/\.payout-actions\{\s*grid-row:2;grid-column:1;position:static/);
+  assert.match(css,/\.machine-payout\.is-big-win \.inline-result \.result-detail\{display:none!important\}/);
 });
