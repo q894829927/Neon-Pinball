@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#0b0c1d">
   <meta name="description" content="单人街机倍率弹珠机">
   <title>星运弹珠局 · Neon Pinball</title>
-  <link rel="stylesheet" href="/games/pinball/style.css?v=0.10.1">
-  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.10.1">
-  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.10.1">
-  <script type="module" src="/games/pinball/game.js?v=0.10.1"></script>
+  <link rel="stylesheet" href="/games/pinball/style.css?v=0.10.2">
+  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.10.2">
+  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.10.2">
+  <script type="module" src="/games/pinball/game.js?v=0.10.2"></script>
 </head>
 <body>
   <div class="ambient glow-left"></div><div class="ambient glow-right"></div>
@@ -93,8 +93,9 @@
           <div id="payoutStage" class="machine-payout" data-act="idle" aria-label="机器下方弹珠兑奖装置">
             <div class="payout-marble-receiver">
               <div class="payout-receiver-name">弹珠出口 <span>MARBLE OUT</span></div>
-              <div class="payout-marble-mouth" aria-hidden="true"><i></i></div>
+              <div class="payout-marble-mouth" aria-label="圆形弹珠出口"><i></i></div>
               <div class="payout-collection-tray" id="payoutBasin" aria-label="透明弹珠收集盆">
+                <canvas id="payoutInventory" class="payout-inventory" aria-hidden="true"></canvas>
                 <div class="payout-coin-track" id="payoutCoins" aria-hidden="true"></div>
               </div>
             </div>
@@ -122,7 +123,7 @@
         </div>
       </section>
     </main>
-    <div class="game-version" aria-label="游戏版本">v0.10.1</div>
+    <div class="game-version" aria-label="游戏版本">v0.10.2</div>
   </div>
 
   <dialog id="infoDialog" class="modal">

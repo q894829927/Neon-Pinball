@@ -420,3 +420,57 @@ body{
   }
   .reward-flight-card{display:none!important}
 }
+/* v0.10.2: circular metal payout nozzle and one-bead-per-credit canvas basin. */
+.payout-marble-mouth{
+  left:50%;right:auto;top:10px;width:31px;height:31px;
+  transform:translateX(-50%);border-radius:50%;z-index:4;
+  border:3px solid #e5c38e;
+  background:radial-gradient(circle at 50% 53%,#020a15 0 32%,#132134 45%,#59677b 57%,#171e30 71%);
+  box-shadow:0 0 0 2px #7b5960,0 0 11px #ffc7859c,
+    inset 0 2px 4px #000,inset 0 -2px 3px #f6dcc29c;
+}
+.payout-marble-mouth::before{
+  content:"";position:absolute;inset:-5px;border:1px solid #fff3d07d;
+  border-radius:50%;pointer-events:none;
+}
+.payout-marble-mouth i{position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);width:11px;height:11px;margin:0;
+  border-radius:50%;background:radial-gradient(circle,#030713,#050a19 63%,#9faec0 95%);
+  border:1px solid #3d4d63;opacity:1;
+  box-shadow:inset 0 0 3px #000,0 0 5px #b9d3ed55;
+}
+.machine-payout[data-act="marbles"] .payout-marble-mouth{
+  box-shadow:0 0 0 2px #a8765d,0 0 16px #ffcf90aa,
+    inset 0 3px 7px #000,inset 0 -2px 4px #ffedca88;
+}
+.machine-payout[data-act="marbles"] .payout-marble-mouth i{
+  animation:roundNozzleGlint .45s ease-in-out infinite alternate;
+}
+@keyframes roundNozzleGlint{to{box-shadow:0 0 8px #c7dfffb8,inset 0 0 3px #6b8eae}}
+.payout-collection-tray{height:40px;bottom:4px}
+.payout-inventory{position:absolute;inset:0;width:100%;height:100%;
+  display:block;z-index:1;pointer-events:none;}
+.payout-coin-track{z-index:2;}
+@media(max-width:820px) and (orientation:portrait){
+  .payout-marble-mouth{top:7px;width:27px;height:27px;border-width:3px}
+  .payout-marble-mouth i{width:9px;height:9px}
+  .payout-collection-tray{height:34px;bottom:3px}
+}
+@media(max-width:370px) and (orientation:portrait){
+  .payout-marble-mouth{top:6px;width:25px;height:25px}
+  .payout-collection-tray{height:30px;bottom:3px}
+}
+@media(max-height:620px) and (orientation:landscape){
+  .payout-marble-mouth{top:2px;width:23px;height:23px}
+  .payout-marble-mouth i{width:8px;height:8px}
+  .payout-collection-tray{height:24px;bottom:2px}
+}
+@media(prefers-reduced-motion:reduce){
+  .machine-payout[data-act="marbles"] .payout-marble-mouth i{animation:none!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .ticket-dispenser.is-printing .dispensed-ticket{
+    opacity:1!important;transform:translate(-50%,14px) rotate(0)!important;
+  }
+}
