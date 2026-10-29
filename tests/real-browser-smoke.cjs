@@ -104,7 +104,8 @@ const {chromium}=require("playwright");
       assert.ok(Math.abs(outletGeometry.width-outletGeometry.height)<1,"Payout nozzle must be circular");
       assert.ok(outletGeometry.borderRadius.includes("%"),"Metal payout nozzle must have full circular rounding");
       assert.equal(outletGeometry.inventoryExists,true);
-      assert.ok(outletGeometry.canvasBox.width>=16&&outletGeometry.canvasBox.height>=10,\n        "Marble canvas must remain visible even in tiny landscape cabinets");
+      assert.ok(outletGeometry.canvasBox.width>=16&&outletGeometry.canvasBox.height>=10,
+        "Marble canvas must remain visible even in tiny landscape cabinets");
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
           const {basinPacking,basinPosition}=await import("/games/pinball/payout-basin.mjs?v=0.10.2");

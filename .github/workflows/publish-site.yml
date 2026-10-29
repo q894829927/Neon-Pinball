@@ -23,6 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check public/game.js
+          node --check tests/real-browser-smoke.cjs
           node --check public/rules.mjs
           node --check public/plunger.mjs
           node --check public/physics-variation.mjs
