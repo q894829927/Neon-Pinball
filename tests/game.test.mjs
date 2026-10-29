@@ -641,7 +641,7 @@ test("mechanical payout is a pure presentation after saved settlement, with skip
   assert.match(code,/save=result.save;persist\(\);/);
   assert.match(code,/startPayoutCeremony\(result,slot\)/);
   assert.match(code,/if\(settled\|\|!priorSave\)return/);
-  assert.match(code,/if\(!result.hit\|\|reduceMotion\)/);
+  assert.match(code,/if\(reduceMotion\)\{\s*\/\/ Accessibility: skip the animation/);
   assert.match(code,/function showFinalResult\(\)/);
   assert.match(code,/payoutAct\(fx.plan,ms\)/);
   assert.match(code,/if\(payoutFx\)showFinalResult\(\)/);
@@ -698,4 +698,13 @@ test("v0.10.2 circular payout hole and true credit-to-marble count",async()=>{
   assert.match(js,/Math\.min\(24,Math\.floor\(progress\*fx.plan.coinSprites\)\)/);
   assert.match(plan,/coinSprites:reward,/);
   assert.doesNotMatch(plan,/Math\.min\(20/);
+});
+
+test("reduced-motion payout keeps all credited marbles and collected tickets visible",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  assert.match(game,/if\(reduceMotion\)\{[\s\S]*?paintBasinMarbles\(plan.reward,plan.reward\)/);
+  assert.match(game,/if\(plan.newCards\)printRewardTickets\(\{plan\}\)/);
+  assert.match(css,/prefers-reduced-motion:reduce/);
 });

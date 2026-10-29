@@ -468,3 +468,9 @@ body{
 @media(prefers-reduced-motion:reduce){
   .machine-payout[data-act="marbles"] .payout-marble-mouth i{animation:none!important}
 }
+
+@media(prefers-reduced-motion:reduce){
+  .ticket-dispenser.is-printing .dispensed-ticket{
+    opacity:1!important;transform:translate(-50%,14px) rotate(0)!important;
+  }
+}
