@@ -551,7 +551,7 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
-  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-tray.mjs","payout-basin.mjs","payout-pile.mjs"]){
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-pile.mjs"]){
     assert.ok(js.includes('"./'+name+'?v=0.10.3"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){

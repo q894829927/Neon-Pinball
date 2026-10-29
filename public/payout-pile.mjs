@@ -43,7 +43,10 @@ export function createFallenPile(width,height,reward){
     let x=clamp(origin,left,right),y=contactY(x);
     const step=Math.max(.25,r*.52);
     for(let j=0;j<12;j++){
-      const lx=clamp(x-step,left,right),rx=clamp(x+step,left,right);
+      // Roll into a nearby pocket, not all the way to the opposite wall.
+      const limit=Math.min(width*.48,spread+r*1.2);
+      const lx=clamp(x-step,Math.max(left,width/2-limit),Math.min(right,width/2+limit));
+      const rx=clamp(x+step,Math.max(left,width/2-limit),Math.min(right,width/2+limit));
       const ly=contactY(lx),ry=contactY(rx);
       if(ly<=y+.09&&ry<=y+.09)break;
       if(ly>ry+.12){x=lx;y=ly;}
