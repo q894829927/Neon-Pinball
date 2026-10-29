@@ -1,16 +1,15 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.10.2";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.2";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.2";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.2";
-import {createPegLayout} from "./board-layout.mjs?v=0.10.2";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.2";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.2";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.2";
-import {makeTrayBall,stepTrayBalls} from "./payout-tray.mjs?v=0.10.2";
-import {basinPacking,basinPosition,basinVisibleCount} from "./payout-basin.mjs?v=0.10.2";
+} from "./rules.mjs?v=0.10.3";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.3";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.3";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.3";
+import {createPegLayout} from "./board-layout.mjs?v=0.10.3";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.3";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.3";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.3";
+import {createFallenPile,fallingBeadPosition} from "./payout-pile.mjs?v=0.10.3";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -64,7 +63,7 @@ let shotStake=0,priorSave=null,settled=false,shotVelocity=null;
 let soundEnabled=false,audioContext=null,floatingUntil=0,particles=[],screenShake=0;
 let collisionNoise=null,lastImpactSoundAt=-Infinity,impactFlashes=[],slotPulse=null;
 let payoutFx=null; // The real reward is committed before the ceremony begins.
-let payoutDisplayState=null; // Exact credited bead total; canvas limits density, not reward.
+let payoutDisplayState=null; // Stable fallen-marble coordinates across the full payout sequence.
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(save));}catch{}}
 function beep(f=520,d=.08,type="sine",volume=.05,delay=0){
   if(!soundEnabled)return;
@@ -339,74 +338,49 @@ function advance(dt){
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=200*dt;p.life-=dt;}
   screenShake=Math.max(0,screenShake-10*dt);
 }
-/** All payout sprites are contained by a physical, transparent basin BELOW the canvas.
- * Payout is already persisted by settleFunded before this decorative sequence. */
-/** Each real winning marble gets its own packed bead while there is room.
- * For prizes larger than the physical basin, the numeric credit remains exact;
- * the rendered basin saturates instead of adding unbounded DOM elements. */
+/** A natural drop-deposited pile is never replaced by a neat final grid. */
 function paintBasinMarbles(count,total){
-  const canvas=el.payoutInventory;
-  const w=el.payoutBasin.clientWidth,h=el.payoutBasin.clientHeight;
+  const canvas=el.payoutInventory,w=el.payoutBasin.clientWidth,h=el.payoutBasin.clientHeight;
   if(w<12||h<8)return;
+  if(!payoutDisplayState||payoutDisplayState.total!==total||
+      payoutDisplayState.width!==w||payoutDisplayState.height!==h){
+    payoutDisplayState={count:0,total,width:w,height:h,
+      startAt:payoutFx?.startedAt??performance.now()-2400,
+      pile:createFallenPile(w,h,total)};
+  }
+  const display=payoutDisplayState;
+  display.count=Math.max(0,Math.min(total,count));
   const dpr=Math.min(2,window.devicePixelRatio||1);
-  const pw=Math.round(w*dpr),ph=Math.round(h*dpr);
-  if(canvas.width!==pw||canvas.height!==ph){canvas.width=pw;canvas.height=ph;}
+  const pxW=Math.round(w*dpr),pxH=Math.round(h*dpr);
+  if(canvas.width!==pxW||canvas.height!==pxH){canvas.width=pxW;canvas.height=pxH;}
   const ctx=canvas.getContext("2d");
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,w,h);
-  const packing=basinPacking(w,h,total);
-  const visible=basinVisibleCount(count,packing);
-  const radius=packing.radius;
-  ctx.fillStyle="#d4e8f4";
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+  const now=performance.now(),radius=display.pile.radius;
+  const visible=Math.min(display.count,display.pile.visible);
   for(let i=0;i<visible;i++){
-    const pos=basinPosition(i,packing,w,h);
-    if(radius<1.15){ctx.fillRect(pos.x-radius,pos.y-radius,radius*1.85,radius*1.85);}
-    else{
-      ctx.beginPath();ctx.arc(pos.x,pos.y,radius,0,Math.PI*2);
-      ctx.fill();
-      if(radius>2){ctx.fillStyle="#ffffff";ctx.fillRect(pos.x-radius*.4,pos.y-radius*.5,radius*.46,radius*.46);ctx.fillStyle="#d4e8f4";}
+    const ball=display.pile.balls[i];
+    const p=fallingBeadPosition(ball,i,total,now,display.startAt,reduceMotion);
+    ctx.fillStyle="#bdd6e4";
+    if(radius<1.15){
+      ctx.fillRect(p.x-radius,p.y-radius,Math.max(1,radius*1.8),Math.max(1,radius*1.8));
+    }else{
+      ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);ctx.fill();
+      if(radius>2){
+        ctx.fillStyle="#f4faff";
+        ctx.beginPath();ctx.arc(p.x-radius*.35,p.y-radius*.36,radius*.28,0,Math.PI*2);ctx.fill();
+      }
     }
   }
-  payoutDisplayState={count,total};
 }
 function clearDispensers(){
-  el.payoutCoins.replaceChildren();
-  el.payoutTickets.replaceChildren();
+  el.payoutCoins.replaceChildren();el.payoutTickets.replaceChildren();
   payoutDisplayState=null;
-  const display=el.payoutInventory,ctx=display.getContext("2d");
-  ctx.clearRect(0,0,display.width,display.height);
+  const canvas=el.payoutInventory;
+  canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
   el.payoutCardCount.hidden=true;
-  el.payoutStage.dataset.act="idle";
-  el.payoutStage.classList.remove("is-big-win");
+  el.payoutStage.dataset.act="idle";el.payoutStage.classList.remove("is-big-win");
   el.ticketDispenser.classList.remove("is-printing");
-  for(const flying of coinFxLayer.querySelectorAll(".reward-flight-card"))flying.remove();
-}
-function animateTrayBalls(fx,dt){
-  const tray=el.payoutBasin, width=tray.clientWidth,height=tray.clientHeight;
-  if(width<20||height<16)return;
-  if(dt>0){
-    const passes=Math.max(1,Math.ceil(dt/(1/120)));
-    for(let n=0;n<passes;n++)stepTrayBalls(fx.balls,dt/passes,width,height);
-  }
-  for(let i=0;i<fx.balls.length;i++){
-    const b=fx.balls[i],node=fx.ballNodes[i];
-    node.style.transform="translate3d("+(b.x-b.radius).toFixed(1)+"px,"+
-      (b.y-b.radius).toFixed(1)+"px,0)";
-  }
-}
-function emitTrayBall(fx){
-  const tray=el.payoutBasin,w=tray.clientWidth,h=tray.clientHeight;
-  if(w<24||h<16)return false;
-  if(fx.balls.length>=24)return false; // bounded moving sprites; the remaining beads are drawn individually in canvas
-  const index=fx.balls.length,ball=makeTrayBall(index,w,h);
-  const node=document.createElement("span");
-  node.className="dispensed-marble";
-  node.setAttribute("aria-hidden","true");
-  el.payoutCoins.append(node);
-  fx.balls.push(ball);
-  fx.ballNodes.push(node);
-  animateTrayBalls(fx,0);
-  return true;
+  for(const card of coinFxLayer.querySelectorAll(".reward-flight-card"))card.remove();
 }
 function printRewardTickets(fx){
   if(!fx.plan.newCards)return;
@@ -460,9 +434,8 @@ function startPayoutCeremony(result,slot){
     return;
   }
   const now=performance.now();
-  payoutFx={plan,startedAt:now,lastAt:now,act:"impact",shownMarbles:0,
-    shownCards:0,lastCoinSoundAt:-Infinity,flewTickets:false,
-    balls:[],ballNodes:[]};
+  payoutFx={plan,startedAt:now,act:"impact",shownMarbles:0,
+    shownCards:0,lastCoinSoundAt:-Infinity,flewTickets:false};
   paintBasinMarbles(0,plan.reward);
   el.resultPanel.hidden=true;
   el.next.hidden=true;
@@ -478,9 +451,7 @@ function startPayoutCeremony(result,slot){
 function showFinalResult(){
   if(payoutFx){
     const fx=payoutFx;
-    // Every credited prize marble remains visible as a packed basin bead.
-    // Moving sprites are removed before the complete settled inventory is painted.
-    el.payoutCoins.replaceChildren();
+    // Retain precisely the same resting locations throughout result reveal.
     paintBasinMarbles(fx.plan.reward,fx.plan.reward);
     if(fx.plan.newCards&&!fx.flewTickets){
       fx.flewTickets=true;printRewardTickets(fx);
@@ -499,8 +470,6 @@ function showFinalResult(){
 function updatePayoutCeremony(now){
   if(!payoutFx)return;
   const fx=payoutFx,ms=Math.max(0,now-fx.startedAt);
-  const dt=Math.min(.06,Math.max(0,(now-fx.lastAt)/1000));
-  fx.lastAt=now;
   const act=payoutAct(fx.plan,ms);
   if(act==="done"){showFinalResult();return;}
   if(act!==fx.act){
@@ -516,14 +485,6 @@ function updatePayoutCeremony(now){
       beep(1120,.13,"sine",.04,.12);
     }
   }
-  if(ms>=430){
-    const progress=Math.min(1,(ms-430)/1220);
-    // Up to 24 animated marbles fall from the nozzle simultaneously.
-    // The tray canvas adds every settled marble (not one proxy per payout).
-    const movingTargets=Math.min(24,Math.floor(progress*fx.plan.coinSprites));
-    while(fx.balls.length<movingTargets){if(!emitTrayBall(fx))break;}
-  }
-  animateTrayBalls(fx,dt);
   if(act==="tickets"&&ms>=2180&&!fx.flewTickets){
     fx.flewTickets=true;
     flyRewardCards(fx.plan.newCards);
@@ -534,7 +495,7 @@ function updatePayoutCeremony(now){
     fx.shownCards=amounts.cards;
     el.payoutCounter.textContent=amounts.marbles.toLocaleString("zh-CN");
     // Each earned unit is a distinct visible bead until the basin fills.
-    paintBasinMarbles(Math.max(0,amounts.marbles-fx.balls.length),fx.plan.reward);
+    paintBasinMarbles(amounts.marbles,fx.plan.reward);
     displayAwardTotals();
   }
   if(act==="marbles"&&soundEnabled&&now-fx.lastCoinSoundAt>170){
@@ -864,6 +825,10 @@ function frame(now){
   }
   updateMultiplierRoll(now);
   updatePayoutCeremony(now);
+  if(payoutDisplayState&&!reduceMotion&&
+      now<payoutDisplayState.startAt+430+1220+265){
+    paintBasinMarbles(payoutDisplayState.count,payoutDisplayState.total);
+  }
   accumulator+=delta;let steps=0;
   while(accumulator>=STEP&&steps<14){advance(STEP);accumulator-=STEP;steps++;}
   if(steps===14)accumulator=0;
