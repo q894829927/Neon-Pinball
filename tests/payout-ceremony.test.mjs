@@ -11,12 +11,14 @@ test("winning ceremony has physical count capped for performance but displays ac
   assert.equal(plan.reward,500);
   assert.equal(payoutAct(plan,0),"impact");
   assert.equal(payoutAct(plan,500),"marbles");
-  assert.equal(payoutAct(plan,1800),"tickets");
-  assert.equal(payoutAct(plan,2900),"done");
+  assert.ok(plan.marblesEnd>4000,"500 steel marbles get enough time to fall");
+  assert.equal(payoutAct(plan,1800),"marbles");
+  assert.equal(payoutAct(plan,plan.marblesEnd+50),"tickets");
+  assert.equal(payoutAct(plan,plan.duration),"done");
   assert.deepEqual(payoutProgress(plan,0),{marbles:0,cards:0});
-  assert.deepEqual(payoutProgress(plan,2900),{marbles:500,cards:10});
+  assert.deepEqual(payoutProgress(plan,plan.duration),{marbles:500,cards:10});
   assert.ok(payoutProgress(plan,1000).marbles>0);
-  assert.ok(payoutProgress(plan,2100).cards>0);
+  assert.ok(payoutProgress(plan,plan.marblesEnd+400).cards>0);
 });
 test("no-ticket win ends after marble collection and invalid outcomes reject",()=>{
   const plan=payoutPlan({hit:true,reward:40,newCards:0,slot:3,multiplier:2});

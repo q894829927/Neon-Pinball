@@ -178,19 +178,25 @@ const {chromium}=require("playwright");
 
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
-          const {createFallenPile}=await import("/games/pinball/payout-pile.mjs?v=0.10.4");
+          const {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
+            withinPayoutBasin}=await import("/games/pinball/payout-physics.mjs?v=0.10.5");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
-          const pile=createFallenPile(tray.width,tray.height,500);
-          const small=createFallenPile(tray.width,tray.height,10);
-          return {ok:pile.balls.every(p=>p.x>0&&p.x<tray.width&&p.y>0&&p.y<tray.height)
-             &&new Set(small.balls.map(p=>p.y.toFixed(2))).size>=2,
-            count:pile.balls.length};
+          const world=createPayoutWorld(tray.width,tray.height,500);
+          const before=world.balls.length;
+          for(let frame=0;frame<480;frame++)
+            stepPayoutWorld(world,1/120,Math.floor(500*(frame+1)/480));
+          finishPayoutWorld(world,75);
+          const unique=new Set(world.balls.map(p=>p.x.toFixed(2)+"/"+p.y.toFixed(2)));
+          return {ok:world.balls.every(p=>withinPayoutBasin(p,world))&&
+              unique.size>world.visible*.85&&world.contacts>0&&world.wallHits>=0,
+            count:world.balls.length,before,contacts:world.contacts};
         });
         assert.equal(payoutLayout.ok,true,"500 earned credits must show 500 basin beads");
         assert.equal(payoutLayout.count,500);
+        assert.ok(payoutLayout.contacts>0,"Real marble contacts must occur");
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.4");
+            "/games/pinball/payout-tray.mjs?v=0.10.5");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
