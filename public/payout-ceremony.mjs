@@ -14,7 +14,7 @@ export function payoutPlan({hit,reward,newCards,slot,multiplier}){
     throw new Error("Invalid settled payout");
   return Object.freeze({
     reward,newCards,slot,multiplier,
-    coinSprites:Math.min(20,Math.max(8,Math.ceil(reward/18))),
+    coinSprites:reward, // exact number of prize marbles; canvas storage bounds rendering cost
     cardSprites:Math.min(3,newCards),
     duration:newCards?PAYOUT_TIMELINE.ticketFinish:PAYOUT_TIMELINE.noCardFinish,
   });

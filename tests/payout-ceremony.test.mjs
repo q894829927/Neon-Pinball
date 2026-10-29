@@ -4,9 +4,10 @@ import {payoutPlan,payoutAct,payoutProgress,PAYOUT_TIMELINE} from "../public/pay
 test("winning ceremony has physical count capped for performance but displays actual reward",()=>{
   assert.equal(payoutPlan({hit:false,reward:0,newCards:0,slot:0,multiplier:10}),null);
   const plan=payoutPlan({hit:true,reward:500,newCards:10,slot:10,multiplier:10});
-  assert.equal(plan.coinSprites,20);
+  assert.equal(plan.coinSprites,500);
   assert.equal(plan.cardSprites,3);
   assert.equal(plan.newCards,10);
+  assert.equal(payoutPlan({hit:true,reward:150,newCards:3,slot:0,multiplier:6}).coinSprites,150);
   assert.equal(plan.reward,500);
   assert.equal(payoutAct(plan,0),"impact");
   assert.equal(payoutAct(plan,500),"marbles");
