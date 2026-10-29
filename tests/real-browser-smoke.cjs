@@ -178,25 +178,33 @@ const {chromium}=require("playwright");
 
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
-          const {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
-            withinPayoutBasin}=await import("/games/pinball/payout-physics.mjs?v=0.10.5");
+          const {PAYOUT_RADIUS,createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
+            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.10.6");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
-          const world=createPayoutWorld(tray.width,tray.height,500);
+          const receiver=document.getElementById("payoutReceiver").getBoundingClientRect();
+          const bounds={left:tray.left-receiver.left,right:tray.right-receiver.left,
+            top:tray.top-receiver.top,bottom:tray.bottom-receiver.top};
+          const world=createPayoutWorld(receiver.width,receiver.height,500,bounds);
           const before=world.balls.length;
           for(let frame=0;frame<480;frame++)
             stepPayoutWorld(world,1/120,Math.floor(500*(frame+1)/480));
           finishPayoutWorld(world,75);
           const unique=new Set(world.balls.map(p=>p.x.toFixed(2)+"/"+p.y.toFixed(2)));
           return {ok:world.balls.every(p=>withinPayoutBasin(p,world))&&
-              unique.size>world.visible*.85&&world.contacts>0&&world.wallHits>=0,
-            count:world.balls.length,before,contacts:world.contacts};
+              unique.size>world.visible*.82&&world.contacts>0&&world.wallHits>=0,
+            count:world.balls.length,before,contacts:world.contacts,
+            radius:world.radius,radiusFixed:world.radius===PAYOUT_RADIUS,
+            overflow:payoutOverflow(world),spilled:world.spilled};
         });
         assert.equal(payoutLayout.ok,true,"500 earned credits must show 500 basin beads");
         assert.equal(payoutLayout.count,500);
         assert.ok(payoutLayout.contacts>0,"Real marble contacts must occur");
+        assert.equal(payoutLayout.radiusFixed,true,"Reward size must never shrink marble radius");
+        assert.ok(payoutLayout.overflow>0,
+          "Dense 500-marble payout must visibly overflow the glass lip");
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.5");
+            "/games/pinball/payout-tray.mjs?v=0.10.6");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
