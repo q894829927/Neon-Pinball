@@ -95,10 +95,31 @@ const {chromium}=require("playwright");
       assert.ok(Math.abs(outlets.ticket.top-outlets.hopper.top)<15,"Ticket exit shares hopper row");
       assert.ok(outlets.basin.top>=outlets.board.bottom-1,"The payout bowl is below the pinball field");
       assert.ok(outlets.basin.width>20&&outlets.basin.height>=16,"Visible physical payout bowl");
+      const outletGeometry=await page.evaluate(()=>{
+        const hole=document.querySelector(".payout-marble-mouth"),r=hole.getBoundingClientRect();
+        const inventory=document.querySelector("#payoutInventory");
+        return {width:r.width,height:r.height,borderRadius:getComputedStyle(hole).borderRadius,
+          inventoryExists:Boolean(inventory),canvasBox:inventory.getBoundingClientRect().toJSON()};
+      });
+      assert.ok(Math.abs(outletGeometry.width-outletGeometry.height)<1,"Payout nozzle must be circular");
+      assert.ok(outletGeometry.borderRadius.includes("%"),"Metal payout nozzle must have full circular rounding");
+      assert.equal(outletGeometry.inventoryExists,true);
+      assert.ok(outletGeometry.canvasBox.width>40&&outletGeometry.canvasBox.height>16);
       if(profile.name==="desktop"||profile.name==="phone"){
+        const payoutLayout=await page.evaluate(async()=>{
+          const {basinPacking,basinPosition}=await import("/games/pinball/payout-basin.mjs?v=0.10.2");
+          const tray=document.getElementById("payoutBasin").getBoundingClientRect();
+          const plan=basinPacking(tray.width,tray.height,500);
+          if(plan.visible!==500)return {ok:false,count:plan.visible};
+          const loc=Array.from({length:500},(_,i)=>basinPosition(i,plan,tray.width,tray.height));
+          return {ok:loc.every(p=>p.x>0&&p.x<tray.width&&p.y>0&&p.y<tray.height),
+            count:loc.length};
+        });
+        assert.equal(payoutLayout.ok,true,"500 earned credits must show 500 basin beads");
+        assert.equal(payoutLayout.count,500);
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.1");
+            "/games/pinball/payout-tray.mjs?v=0.10.2");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
