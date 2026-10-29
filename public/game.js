@@ -1,15 +1,15 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.10.3";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.3";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.3";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.3";
-import {createPegLayout} from "./board-layout.mjs?v=0.10.3";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.3";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.3";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.3";
-import {createFallenPile,fallingBeadPosition} from "./payout-pile.mjs?v=0.10.3";
+} from "./rules.mjs?v=0.10.4";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.4";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.4";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.4";
+import {createPegLayout} from "./board-layout.mjs?v=0.10.4";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.4";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.4";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.4";
+import {createFallenPile,fallingBeadPosition} from "./payout-pile.mjs?v=0.10.4";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -373,14 +373,18 @@ function paintBasinMarbles(count,total){
   }
 }
 function clearDispensers(){
-  el.payoutCoins.replaceChildren();el.payoutTickets.replaceChildren();
+  el.payoutCoins.replaceChildren();clearPrintedTickets();
   payoutDisplayState=null;
   const canvas=el.payoutInventory;
   canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
-  el.payoutCardCount.hidden=true;
   el.payoutStage.dataset.act="idle";el.payoutStage.classList.remove("is-big-win");
-  el.ticketDispenser.classList.remove("is-printing");
   for(const card of coinFxLayer.querySelectorAll(".reward-flight-card"))card.remove();
+}
+/** The chute is empty when the physical cards finish ejecting or results appear. */
+function clearPrintedTickets(){
+  el.payoutTickets.replaceChildren();
+  el.ticketDispenser.classList.remove("is-printing");
+  el.payoutCardCount.hidden=true;
 }
 function printRewardTickets(fx){
   if(!fx.plan.newCards)return;
@@ -394,6 +398,11 @@ function printRewardTickets(fx){
     card.textContent="★";
     card.style.setProperty("--ticket-delay",i*145+"ms");
     card.style.setProperty("--ticket-x",(i-(fx.plan.cardSprites-1)/2)*14+"px");
+    card.addEventListener("animationend",event=>{
+      if(event.animationName!=="ticketOut")return;
+      card.remove();
+      if(!el.payoutTickets.childElementCount)clearPrintedTickets();
+    },{once:true});
     tickets.append(card);
   }
   el.payoutTickets.replaceChildren(tickets);
@@ -429,7 +438,6 @@ function startPayoutCeremony(result,slot){
   if(reduceMotion){
     // Accessibility: skip the animation, never skip the earned marbles or cards.
     paintBasinMarbles(plan.reward,plan.reward);
-    if(plan.newCards)printRewardTickets({plan});
     showFinalResult();
     return;
   }
@@ -453,10 +461,10 @@ function showFinalResult(){
     const fx=payoutFx;
     // Retain precisely the same resting locations throughout result reveal.
     paintBasinMarbles(fx.plan.reward,fx.plan.reward);
-    if(fx.plan.newCards&&!fx.flewTickets){
-      fx.flewTickets=true;printRewardTickets(fx);
-    }
   }
+  // Do not leave printed tickets hanging over the playfield after payout.
+  // Skipping the ceremony also clears the chute without changing saved cards.
+  clearPrintedTickets();
   payoutFx=null;
   phase="result";
   el.payoutStage.dataset.act="result";
@@ -485,7 +493,7 @@ function updatePayoutCeremony(now){
       beep(1120,.13,"sine",.04,.12);
     }
   }
-  if(act==="tickets"&&ms>=2180&&!fx.flewTickets){
+  if(act==="tickets"&&ms>=1970&&!fx.flewTickets){
     fx.flewTickets=true;
     flyRewardCards(fx.plan.newCards);
   }

@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#0b0c1d">
   <meta name="description" content="单人街机倍率弹珠机">
   <title>星运弹珠局 · Neon Pinball</title>
-  <link rel="stylesheet" href="/games/pinball/style.css?v=0.10.3">
-  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.10.3">
-  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.10.3">
-  <script type="module" src="/games/pinball/game.js?v=0.10.3"></script>
+  <link rel="stylesheet" href="/games/pinball/style.css?v=0.10.4">
+  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.10.4">
+  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.10.4">
+  <script type="module" src="/games/pinball/game.js?v=0.10.4"></script>
 </head>
 <body>
   <div class="ambient glow-left"></div><div class="ambient glow-right"></div>
@@ -100,15 +100,19 @@
               </div>
             </div>
             <div class="machine-inline-summary">
+              <div class="payout-status-content">
               <div id="payoutActLabel" class="payout-headline" aria-live="polite">等待兑奖</div>
               <div class="payout-earnings" id="payoutEarnings" hidden>+<strong id="payoutCounter">0</strong><small> 颗</small></div>
               <div id="inlineResult" class="inline-result" hidden>
                 <span id="jackpotBanner" class="jackpot-banner" hidden></span>
                 <span id="resultStamp" class="result-stamp" hidden></span>
-                <strong id="resultTitle">本局完成</strong>
-                <span id="resultNumber" class="result-number"></span>
+                <div class="result-primary">
+                  <strong id="resultTitle">本局完成</strong>
+                  <span id="resultNumber" class="result-number"></span>
+                </div>
                 <span id="resultDetail" class="result-detail"></span>
                 <span id="cardEarned" class="card-earned" hidden></span>
+              </div>
               </div>
               <div class="payout-actions">
                 <button id="payoutSkip" type="button" hidden>跳过动画 ›</button>
@@ -123,7 +127,7 @@
         </div>
       </section>
     </main>
-    <div class="game-version" aria-label="游戏版本">v0.10.3</div>
+    <div class="game-version" aria-label="游戏版本">v0.10.4</div>
   </div>
 
   <dialog id="infoDialog" class="modal">

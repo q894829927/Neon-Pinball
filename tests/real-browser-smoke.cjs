@@ -113,9 +113,72 @@ const {chromium}=require("playwright");
       assert.equal(outletGeometry.inventoryExists,true);
       assert.ok(outletGeometry.canvasBox.width>=16&&outletGeometry.canvasBox.height>=10,
         "Marble canvas must remain visible even in tiny landscape cabinets");
+      // Force both result formats at every viewport, including the 8x/10x
+      // special banners. The button must have its own row, never cover digits.
+      const summaryCheck=await page.evaluate(()=>{
+        const el=id=>document.getElementById(id);
+        const panel=el("payoutStage"),summary=el("inlineResult"),
+          title=el("resultTitle"),number=el("resultNumber"),
+          detail=el("resultDetail"),banner=el("jackpotBanner"),
+          card=el("cardEarned"),next=el("nextBtn"),
+          heading=el("payoutActLabel"),earning=el("payoutEarnings");
+        const previous={
+          act:panel.dataset.act,big:panel.classList.contains("is-big-win"),
+          summary:summary.hidden,next:next.hidden,heading:heading.hidden,
+          earning:earning.hidden,banner:banner.hidden,card:card.hidden,
+          title:title.textContent,number:number.innerHTML,
+          detail:detail.textContent,bannerText:banner.textContent,
+          cardText:card.textContent
+        };
+        summary.hidden=false;next.hidden=false;heading.hidden=true;
+        earning.hidden=true;card.hidden=false;detail.hidden=false;
+        panel.dataset.act="result";
+        const layouts=[];
+        for(const jackpot of [false,true]){
+          panel.classList.toggle("is-big-win",jackpot);
+          banner.hidden=!jackpot;
+          banner.textContent=jackpot?"✦ LEGENDARY 10× ✦":"";
+          title.textContent="红灯命中！";
+          number.innerHTML="+500 <small>颗</small>";
+          detail.textContent="50 颗 × 10 倍 = 500 颗";
+          card.textContent="✦ 获得奖励卡 ×10";
+          const btn=next.getBoundingClientRect();
+          const body=el("payoutStage").querySelector(".payout-status-content").getBoundingClientRect();
+          const primary=el("inlineResult").querySelector(".result-primary").getBoundingClientRect();
+          const cardRect=card.getBoundingClientRect();
+          const bannerRect=banner.getBoundingClientRect();
+          const detailRect=detail.getBoundingClientRect();
+          layouts.push({jackpot,buttonTop:btn.top,cardBottom:cardRect.bottom,
+            bodyTop:body.top,primaryTop:primary.top,primaryBottom:primary.bottom,
+            bannerBottom:bannerRect.bottom,detailBottom:detailRect.bottom,
+            detailVisible:getComputedStyle(detail).display!=="none"});
+        }
+        panel.dataset.act=previous.act;
+        panel.classList.toggle("is-big-win",previous.big);
+        summary.hidden=previous.summary;next.hidden=previous.next;
+        heading.hidden=previous.heading;earning.hidden=previous.earning;
+        banner.hidden=previous.banner;card.hidden=previous.card;
+        title.textContent=previous.title;number.innerHTML=previous.number;
+        detail.textContent=previous.detail;banner.textContent=previous.bannerText;
+        card.textContent=previous.cardText;
+        return layouts;
+      });
+      for(const layout of summaryCheck){
+        assert.ok(layout.cardBottom<=layout.buttonTop+1,
+          "Reward-card text must not overlap next-round button: "+JSON.stringify({profile:profile.name,...layout}));
+        assert.ok(layout.primaryBottom<=layout.buttonTop+1,
+          "Winning amount must be fully above next-round button");
+        assert.ok(layout.primaryTop>=layout.bodyTop-1,
+          "Result title must remain inside the dedicated summary area");
+        if(layout.jackpot)assert.ok(layout.bannerBottom<=layout.primaryTop+1,
+          "10× header must not overlap winning title or amount");
+        if(layout.detailVisible)assert.ok(layout.detailBottom<=layout.buttonTop+1,
+          "Normal win detail must not overlap next-round button");
+      }
+
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
-          const {createFallenPile}=await import("/games/pinball/payout-pile.mjs?v=0.10.3");
+          const {createFallenPile}=await import("/games/pinball/payout-pile.mjs?v=0.10.4");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
           const pile=createFallenPile(tray.width,tray.height,500);
           const small=createFallenPile(tray.width,tray.height,10);
@@ -127,7 +190,7 @@ const {chromium}=require("playwright");
         assert.equal(payoutLayout.count,500);
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.3");
+            "/games/pinball/payout-tray.mjs?v=0.10.4");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
