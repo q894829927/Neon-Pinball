@@ -347,7 +347,7 @@ function advance(dt){
 function paintBasinMarbles(count,total){
   const canvas=el.payoutInventory;
   const w=el.payoutBasin.clientWidth,h=el.payoutBasin.clientHeight;
-  if(w<20||h<16)return;
+  if(w<12||h<8)return;
   const dpr=Math.min(2,window.devicePixelRatio||1);
   const pw=Math.round(w*dpr),ph=Math.round(h*dpr);
   if(canvas.width!==pw||canvas.height!==ph){canvas.width=pw;canvas.height=ph;}
@@ -449,12 +449,16 @@ function flyRewardCards(amount){
   }
 }
 function startPayoutCeremony(result,slot){
-  if(!result.hit||reduceMotion){
+  if(!result.hit){showFinalResult();return;}
+  const plan=payoutPlan({hit:result.hit,reward:result.reward,
+    newCards:result.newCards,slot,multiplier:round.multiplier});
+  if(reduceMotion){
+    // Accessibility: skip the animation, never skip the earned marbles or cards.
+    paintBasinMarbles(plan.reward,plan.reward);
+    if(plan.newCards)printRewardTickets({plan});
     showFinalResult();
     return;
   }
-  const plan=payoutPlan({hit:result.hit,reward:result.reward,
-    newCards:result.newCards,slot,multiplier:round.multiplier});
   const now=performance.now();
   payoutFx={plan,startedAt:now,lastAt:now,act:"impact",shownMarbles:0,
     shownCards:0,lastCoinSoundAt:-Infinity,flewTickets:false,
