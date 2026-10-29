@@ -583,3 +583,15 @@ body{
   .payout-actions{min-height:15px}
   .payout-actions button{min-height:15px;font-size:8px;line-height:10px;padding:1px 4px}
 }
+
+/* v0.10.6: glass bowl is OPEN at the lip; fixed-size physical marbles can
+   rise into the receiver above the bowl rather than being clipped/shrunk. */
+.payout-marble-receiver{position:relative;overflow:hidden;isolation:isolate}
+.payout-collection-tray{z-index:1;overflow:visible}
+.payout-inventory{
+  position:absolute;inset:0;display:block;z-index:2;
+  width:100%;height:100%;pointer-events:none;
+}
+.payout-receiver-name{z-index:5}
+.payout-marble-mouth{z-index:6}
+.payout-coin-track{pointer-events:none}

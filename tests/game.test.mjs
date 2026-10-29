@@ -519,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.5/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.6/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -552,10 +552,10 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
   for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-physics.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.10.5"'),"Versioned import: "+name);
+    assert.ok(js.includes('"./'+name+'?v=0.10.6"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.5'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.6'));
   }
 });
 
@@ -584,7 +584,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.5/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.6/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -652,7 +652,7 @@ test("mechanical payout is a pure presentation after saved settlement, with skip
   assert.match(html,/class="machine-feeds"/);
   assert.match(html,/id="ticketDispenser"/);
   assert.match(html,/id="payoutBasin"/);
-  assert.match(code,/createPayoutWorld\(w,h,total\)/);
+  assert.match(code,/createPayoutWorld\(w,h,total,tray\)/);
   assert.match(code,/stepPayoutWorld\(world,delta,target\)/);
   assert.match(code,/payoutStage\.dataset\.act="result"/);
   assert.match(html,/id="payoutSkip"/);
@@ -715,7 +715,7 @@ test("v0.10.3 keeps falling positions at payout completion, and nozzle does not 
   const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
   assert.match(html,/class="payout-receiver-name"/);
   assert.match(html,/class="payout-marble-mouth"/);
-  assert.match(code,/createPayoutWorld\(w,h,total\)/);
+  assert.match(code,/createPayoutWorld\(w,h,total,tray\)/);
   assert.match(code,/paintBasinMarbles\(fx\.plan.reward,fx\.plan.reward,true\)/);
   assert.doesNotMatch(code,/basinPosition\(i,packing,w,h\)/);
   assert.match(css,/\.payout-marble-mouth::before\{display:none!important\}/);
@@ -746,12 +746,25 @@ test("v0.10.5 payout marbles have genuine collision simulation, never animated p
   const {readFileSync}=await import("node:fs");
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const source=readFileSync(new URL("../public/payout-physics.mjs",import.meta.url),"utf8");
-  assert.match(js,/createPayoutWorld\(w,h,total\)/);
+  assert.match(js,/createPayoutWorld\(w,h,total,tray\)/);
   assert.match(js,/stepPayoutWorld\(world,delta,target\)/);
   assert.match(js,/if\(world\.balls\.length<visible\)finishPayoutWorld\(world,240\)/);
   assert.doesNotMatch(js,/createFallenPile|fallingBeadPosition/);
-  assert.match(source,/function resolvePairs\(world\)/);
+  assert.match(source,/function solveContacts\(world\)/);
   assert.match(source,/const bins=new Map\(\)/);
-  assert.match(source,/ball\.vy=clamp\(ball\.vy\+GRAVITY\*dt/);
+  assert.match(source,/ball\.vy=clamp\(ball\.vy\+GRAVITY\*STEP/);
   assert.match(js,/save=result\.save;persist\(\);/);
+});
+
+test("v0.10.6 keeps fixed radius and renders spills outside the glass bowl",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  assert.match(html,/id="payoutReceiver"/);
+  assert.ok(html.indexOf('id="payoutInventory"')>html.indexOf('id="payoutBasin"'));
+  assert.match(game,/payoutReceiver\.getBoundingClientRect\(\)/);
+  assert.match(game,/createPayoutWorld\(w,h,total,tray\)/);
+  assert.match(css,/\.payout-inventory\{[\s\S]*?z-index:2/);
+  assert.match(css,/\.payout-collection-tray\{z-index:1;overflow:visible\}/);
 });
