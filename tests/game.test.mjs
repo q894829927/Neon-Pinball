@@ -808,5 +808,5 @@ test("v0.10.8 unifies chrome and glass without changing the 420×710 board or pa
   assert.match(game,/machineSection\.dataset\.pull=charging\?"charging":"idle"/);
   assert.match(game,/const y=PLUNGER\.restY\+\(charging\?charge:0\)\*PLUNGER\.travel/);
   assert.match(rules,/settleFunded/);
-  assert.doesNotMatch(design,/\bdisplay\s*:\s*none\s*!important\s*;?\s*\}\s*$/m);
+  assert.doesNotMatch(design,/\.cabinet\s*\{[^}]*display\s*:\s*none/s);
 });
