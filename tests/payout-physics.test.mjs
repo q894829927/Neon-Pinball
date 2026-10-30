@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {PAYOUT_RADIUS,createPayoutWorld,spawnPayoutBall,stepPayoutWorld,
- finishPayoutWorld,reflowPayoutWorld,withinPayoutBasin,payoutOverflow}
+ finishPayoutWorld,reflowPayoutWorld,withinPayoutBasin,payoutOverflow,consumePayoutImpact}
  from "../public/payout-physics.mjs";
 
 test("reward size never changes metal bead radius",()=>{
@@ -55,4 +55,32 @@ test("normal and narrow receivers, resize preserving size, deterministic fast-fo
   assert.equal(huge.radius,PAYOUT_RADIUS);
   assert.equal(huge.visible,850);
   assert.equal(huge.reward,10000000);
+});
+
+test("platform floor has real collision surfaces and impact strength is available for audio",()=>{
+  const w=createPayoutWorld(168,66,500,{left:23.5,right:144.5,top:26,bottom:62});
+  // Give a bead the physical state of having crossed the lip. Its floor
+  // contact must occur on the separate steel platform, not be removed.
+  const b=spawnPayoutBall(w);
+  b.x=12;b.y=47;b.vy=195;b.vx=0;
+  for(let i=0;i<12;i++)stepPayoutWorld(w,1/120,1);
+  assert.equal(b.radius,PAYOUT_RADIUS);
+  assert.equal(b.landedOnPlatform,true);
+  assert.ok(w.platformLandings>=1);
+  assert.ok(w.platformImpacts>=1);
+  const impact=consumePayoutImpact(w);
+  assert.ok(impact&&impact.speed>18);
+  assert.ok(["platform","basin","wall","bead"].includes(impact.kind));
+  assert.equal(consumePayoutImpact(w),null,"A clink is consumed once");
+  assert.ok(withinPayoutBasin(b,w));
+});
+test("spill platform does not change credit count, no payout physics feedback edits game odds",()=>{
+  const w=createPayoutWorld(108,54,850,{left:15,right:93,top:20,bottom:50});
+  finishPayoutWorld(w,300);
+  assert.equal(w.reward,850);
+  assert.equal(w.visible,850);
+  assert.equal(w.balls.length,850);
+  assert.ok(w.contacts>100);
+  assert.ok(w.balls.every(b=>withinPayoutBasin(b,w)));
+  assert.ok(w.platformLandings>=0);
 });

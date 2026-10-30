@@ -1,15 +1,16 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.10.6";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.6";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.6";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.6";
-import {createPegLayout} from "./board-layout.mjs?v=0.10.6";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.6";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.6";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.6";
-import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld} from "./payout-physics.mjs?v=0.10.6";
+} from "./rules.mjs?v=0.10.7";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.7";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.7";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.7";
+import {createPegLayout} from "./board-layout.mjs?v=0.10.7";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.7";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.7";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.7";
+import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.10.7";
+import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.10.7";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -64,7 +65,8 @@ let shotStake=0,priorSave=null,settled=false,shotVelocity=null;
 let soundEnabled=false,audioContext=null,floatingUntil=0,particles=[],screenShake=0;
 let collisionNoise=null,lastImpactSoundAt=-Infinity,impactFlashes=[],slotPulse=null;
 let payoutFx=null; // The real reward is committed before the ceremony begins.
-let payoutDisplayState=null; // Stable fallen-marble coordinates across the full payout sequence.
+let payoutDisplayState=null; // Stable real-physics state throughout payout.
+let lastPayoutClinkAt=-Infinity;
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(save));}catch{}}
 function beep(f=520,d=.08,type="sine",volume=.05,delay=0){
   if(!soundEnabled)return;
@@ -123,6 +125,19 @@ function metallicHit(impact){
     src.connect(filter).connect(noiseGain).connect(envelope);
     src.start(start);src.stop(start+Math.min(.049,profile.duration));
   }catch{/* Audio is optional; never stop physics rendering. */}
+}
+/** Real payout-collision sound, using the same physical impulse as the animation.
+ * Controlled separately from the playfield hits and limited to one clink per
+ * 105 ms so that an 850-ball prize cannot flood browser audio voices. */
+function payoutClink(impact){
+  if(!soundEnabled||!impact)return;
+  const profile=payoutImpactProfile(impact,Math.random());
+  if(!profile)return;
+  const now=performance.now();
+  if(now-lastPayoutClinkAt<PAYOUT_CLINK_GAP_MS)return;
+  lastPayoutClinkAt=now;
+  beep(profile.frequency,profile.duration,"triangle",profile.gain);
+  beep(Math.round(profile.frequency*1.78),profile.duration*.55,"sine",profile.gain*.20);
 }
 function impactVisuals(impacts){
   if(impacts.length===0)return;
@@ -367,11 +382,13 @@ function paintBasinMarbles(count,total,instant=false){
   const delta=Math.min(.05,Math.max(0,(now-display.lastAt)/1000));
   display.lastAt=now;
   if(instant){
-    // Completes the same genuine collision simulation offscreen.
+    // Same physics: fast forward without playing hundreds of queued hits.
     if(world.balls.length<visible)finishPayoutWorld(world,240);
+    consumePayoutImpact(world);
     display.settleUntil=now+2200;
   }else{
     stepPayoutWorld(world,delta,target);
+    payoutClink(consumePayoutImpact(world));
   }
   const dpr=Math.min(2,window.devicePixelRatio||1);
   const pxW=Math.round(w*dpr),pxH=Math.round(h*dpr);
@@ -394,7 +411,7 @@ function paintBasinMarbles(count,total,instant=false){
 }
 function clearDispensers(){
   el.payoutCoins.replaceChildren();clearPrintedTickets();
-  payoutDisplayState=null;
+  payoutDisplayState=null;lastPayoutClinkAt=-Infinity;
   const canvas=el.payoutInventory;
   canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
   el.payoutStage.dataset.act="idle";el.payoutStage.classList.remove("is-big-win");
