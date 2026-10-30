@@ -1,16 +1,16 @@
 import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
   freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
   commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.10.7";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.7";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.7";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.7";
-import {createPegLayout} from "./board-layout.mjs?v=0.10.7";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.7";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.7";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.7";
-import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.10.7";
-import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.10.7";
+} from "./rules.mjs?v=0.10.8";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.8";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.8";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.8";
+import {createPegLayout} from "./board-layout.mjs?v=0.10.8";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.8";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.8";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.8";
+import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.10.8";
+import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.10.8";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -287,6 +287,8 @@ function refresh(){
 function updatePower(){
   el.bar.style.width=Math.round(charge*100)+"%";
   el.power.textContent=Math.round(charge*100)+"%";
+  machineSection.dataset.pull=charging?"charging":"idle";
+  machineSection.style.setProperty("--pull-percent",Math.round(charge*100)+"%");
 }
 function beginCharge(mode, startY=0, pointerId=null){
   if(phase!=="ready"||revealState!=="revealed"||!canLaunch(save)||charging)return false;
@@ -716,29 +718,39 @@ scheduleMachineFit();
 function drawPlunger(p){
   const y=PLUNGER.restY+(charging?charge:0)*PLUNGER.travel;
   const cx=PLUNGER.centerX;
-  // Dedicated, visibly mechanical, grabbable steel-and-brass plunger.
-  rounded(378,616,29,86,7,"#141727","#9d94a7");
-  rounded(382,621,21,75,5,"#273447","#636b82");
-  label("↓",cx,600,16,p.gold,"center","700");
-  label("PULL",cx,613,8,p.gold,"center","700");
-  for(let n=0;n<=4;n++){
-    const yy=625+n*14;
-    line(379,yy,382,yy,"#e9cfb2",1.5);
-    line(403,yy,406,yy,"#e9cfb2",1.5);
+  // v0.10.8: all visible rails, bearing collars, spring and grip use the
+  // same gunmetal/brass palette as the cabinet chrome. Hitbox is unchanged.
+  rounded(378,616,29,86,6,"#0b1425","#a1aab4");
+  rounded(381,619,23,80,5,"#19283b","#60768a");
+  rounded(383,622,19,73,3,"#1b3045","#334b62");
+  line(385,622,385,694,"#96b1c352",1);
+  line(400,622,400,694,"#d9be9863",1);
+  // Fasteners and engraved force marks are ornamental only.
+  for(let n=0;n<5;n++){
+    const yy=630+n*13;
+    line(379,yy,383,yy,"#cbb593",1.4);
+    line(402,yy,406,yy,"#cbb593",1.4);
   }
-  // Spring compresses visually as the metal handle is pulled towards the base.
-  const springStart=y+12,springEnd=695;
+  label("↓",cx,601,15,"#e8c794","center","700");
+  label("PULL",cx,612,8,"#e7cfa8","center","700");
+  const springStart=Math.min(y+12,686),springEnd=695;
   ctx.beginPath();ctx.moveTo(cx,springStart);
-  for(let n=0;n<9;n++){
-    const t=(n+1)/10;
-    ctx.lineTo(cx+(n%2?-6:6),springStart+(springEnd-springStart)*t);
+  for(let n=0;n<10;n++){
+    const t=(n+1)/11;
+    ctx.lineTo(cx+(n%2?-5:5),springStart+(springEnd-springStart)*t);
   }
-  ctx.lineTo(cx,springEnd);ctx.strokeStyle="#d7e5ec";ctx.lineWidth=2.4;ctx.stroke();
-  rounded(380,y-11,25,22,6,"#b8743e","#fff2c7");
-  rounded(382,y-10,21,17,5,p.gold,"#ffe9bc");
-  line(384,y-5,401,y-5,"#fff8e0",2);
-  line(384,y+4,401,y+4,"#ac753c",2);
-  if(charging)rounded(380,y-11,25,22,6,null,"#ffffff");
+  ctx.lineTo(cx,springEnd);
+  ctx.strokeStyle="#9baebb";ctx.lineWidth=2.2;ctx.stroke();
+  // Brushed steel sleeve with a slim brass accent and a specular edge.
+  rounded(381,y-12,24,24,6,"#596779","#e9caa2");
+  rounded(383,y-10,20,20,5,"#b7c3cb","#fbecd0");
+  rounded(385,y-9,16,4,2,"#f4e7d4");
+  rounded(384,y+3,18,6,2,charging?"#d7b379":"#b28f6d");
+  line(386,y+7,400,y+7,"#655b5a",1);
+  if(charging){
+    rounded(381,y-12,24,24,6,null,"#fff4ca");
+    circle(cx,y-7,1.6,"#fff9da");
+  }
 }
 function draw(timestamp){
   const p=palette[save.theme];

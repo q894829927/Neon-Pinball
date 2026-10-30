@@ -519,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.7/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.8/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -552,10 +552,10 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
   for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-physics.mjs","payout-feedback.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.10.7"'),"Versioned import: "+name);
+    assert.ok(js.includes('"./'+name+'?v=0.10.8"'),"Versioned import: "+name);
   }
-  for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.7'));
+  for(const name of ["style.css","mobile.css","fullscreen.css","cabinet-v0108.css","game.js"]){
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.8'));
   }
 });
 
@@ -584,7 +584,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.7/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.8/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -784,4 +784,29 @@ test("v0.10.7 payout spill shelves align with physical edges and sound intensity
   assert.match(code,/payoutClink\(consumePayoutImpact\(world\)\)/);
   assert.match(code,/PAYOUT_CLINK_GAP_MS/);
   assert.match(code,/save=result.save;persist\(\);/);
+});
+
+test("v0.10.8 unifies chrome and glass without changing the 420×710 board or payout rules",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const design=readFileSync(new URL("../public/cabinet-v0108.css",import.meta.url),"utf8");
+  const rules=readFileSync(new URL("../public/rules.mjs",import.meta.url),"utf8");
+  const i=html.indexOf('fullscreen.css?v=0.10.8');
+  const j=html.indexOf('cabinet-v0108.css?v=0.10.8');
+  assert.ok(i>=0&&j>i,"Visual overrides must load after viewport-fit rules");
+  assert.match(html,/width="420" height="710"/);
+  assert.match(html,/data-mult-lamp="2"/);
+  assert.match(html,/data-mult-lamp="10"/);
+  assert.match(design,/\.cabinet\{/);
+  assert.match(design,/\.mult-lamp\.is-final\{/);
+  assert.match(design,/\.machine-payout\{/);
+  assert.match(design,/\.payout-marble-receiver\{/);
+  assert.match(design,/\.payout-actions button\{/);
+  assert.match(design,/\.plunger-grip\{/);
+  assert.match(design,/prefers-reduced-motion:reduce/);
+  assert.match(game,/machineSection\.dataset\.pull=charging\?"charging":"idle"/);
+  assert.match(game,/const y=PLUNGER\.restY\+\(charging\?charge:0\)\*PLUNGER\.travel/);
+  assert.match(rules,/settleFunded/);
+  assert.doesNotMatch(design,/\bdisplay\s*:\s*none\s*!important\s*;?\s*\}\s*$/m);
 });
