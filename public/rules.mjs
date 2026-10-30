@@ -14,14 +14,39 @@ export function winningSlotCount(multiplier) {
 }
 export const STORAGE_KEY = "neon-pinball-arcade-v1";
 
+// Keep the three original IDs and prices: v0.10.x save files must migrate
+// without losing any purchased theme or changing a player's card balance.
 export const GIFTS = Object.freeze([
-  { id: "sunset", name: "落日橘灯光", cost: 1, description: "点亮一套暖金色霓虹灯" },
-  { id: "mint", name: "薄荷绿灯光", cost: 2, description: "解锁清凉薄荷街机主题" },
-  { id: "violet", name: "极光紫灯光", cost: 3, description: "解锁限定极光紫灯光" },
+  { id:"sunset",category:"theme",name:"落日橘灯光",cost:1,rarity:"普通",description:"暖金霓虹机台灯光" },
+  { id:"mint",category:"theme",name:"薄荷绿灯光",cost:2,rarity:"稀有",description:"清凉薄荷机台灯光" },
+  { id:"violet",category:"theme",name:"极光紫灯光",cost:3,rarity:"史诗",description:"极光紫机台灯光" },
 ]);
+export const MARBLE_SKINS=Object.freeze([
+  {id:"pearl",category:"marble",name:"珍珠银珠",cost:1,rarity:"普通",description:"乳白金属质感与柔和高光"},
+  {id:"ember",category:"marble",name:"熔金弹珠",cost:3,rarity:"稀有",description:"琥珀色钢珠与金色反射"},
+  {id:"nebula",category:"marble",name:"星云弹珠",cost:5,rarity:"史诗",description:"紫蓝渐变的星空钢珠"},
+]);
+export const TRAIL_EFFECTS=Object.freeze([
+  {id:"comet",category:"trail",name:"彗星金尾迹",cost:2,rarity:"普通",description:"细密暖金色拖尾"},
+  {id:"frost",category:"trail",name:"冰晶尾迹",cost:3,rarity:"稀有",description:"冷蓝色发光轨迹"},
+  {id:"prism",category:"trail",name:"棱镜尾迹",cost:5,rarity:"史诗",description:"渐变紫粉色流光"},
+]);
+export const CATALOG=Object.freeze([...GIFTS,...MARBLE_SKINS,...TRAIL_EFFECTS]);
+export const DEFAULT_LOOKS=Object.freeze([
+  {id:"classic",category:"theme",name:"经典霓虹",cost:0,rarity:"基础",description:"初始机台主题"},
+  {id:"steel",category:"marble",name:"标准钢珠",cost:0,rarity:"基础",description:"原版银色钢珠"},
+  {id:"standard",category:"trail",name:"标准拖尾",cost:0,rarity:"基础",description:"经典淡蓝钢珠轨迹"},
+]);
+export const ALL_COLLECTIBLES=Object.freeze([...DEFAULT_LOOKS,...CATALOG]);
+export function collectionProgress(save){
+  return {unlocked:CATALOG.filter(item=>save.redeemed.includes(item.id)).length,
+    total:CATALOG.length};
+}
 
 export function freshSave() {
-  return { marbles: STARTING_MARBLES, cards: 0, rounds: 0, wins: 0, best: 0, earned: 0, redeemed: [], theme: "classic", pendingStake: 0, pendingRound: null };
+  return { marbles: STARTING_MARBLES, cards: 0, rounds: 0, wins: 0, best: 0, earned: 0,
+    redeemed: [], theme: "classic", marbleSkin:"steel", trailEffect:"standard",
+    pendingStake: 0, pendingRound: null };
 }
 
 function int(value, max = 1_000_000_000) {
@@ -31,11 +56,19 @@ function int(value, max = 1_000_000_000) {
 export function restoreSave(candidate) {
   const fallback = freshSave();
   if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) return fallback;
-  const valid = new Set(GIFTS.map(g => g.id));
+  const valid = new Set(CATALOG.map(g => g.id));
   const redeemed = Array.isArray(candidate.redeemed)
     ? [...new Set(candidate.redeemed.filter(id => typeof id === "string" && valid.has(id)))]
     : [];
-  const theme = candidate.theme === "classic" || redeemed.includes(candidate.theme) ? candidate.theme : "classic";
+  const theme = candidate.theme === "classic" ||
+    (GIFTS.some(g=>g.id===candidate.theme)&&redeemed.includes(candidate.theme))
+      ? candidate.theme : "classic";
+  const marbleSkin=candidate.marbleSkin==="steel"||
+    (MARBLE_SKINS.some(g=>g.id===candidate.marbleSkin)&&redeemed.includes(candidate.marbleSkin))
+      ? candidate.marbleSkin : "steel";
+  const trailEffect=candidate.trailEffect==="standard"||
+    (TRAIL_EFFECTS.some(g=>g.id===candidate.trailEffect)&&redeemed.includes(candidate.trailEffect))
+      ? candidate.trailEffect : "standard";
   const pendingStake = int(candidate.pendingStake, MAX_STAKE);
   const pendingRound = pendingStake >= MIN_STAKE
     ? normalizePendingRound(candidate.pendingRound) : null;
@@ -43,7 +76,7 @@ export function restoreSave(candidate) {
     marbles: int(candidate.marbles), cards: int(candidate.cards),
     rounds: int(candidate.rounds), wins: int(candidate.wins),
     best: int(candidate.best), earned: int(candidate.earned),
-    redeemed, theme,
+    redeemed, theme, marbleSkin, trailEffect,
     // A partial deposit stays funded across a refresh. No multiplier before 5.
     pendingStake: pendingRound || pendingStake < MIN_STAKE ? pendingStake : 0,
     pendingRound,
@@ -169,14 +202,28 @@ export function settleFunded(save, round, stake, slot) {
 }
 
 export function redeem(save, id) {
-  const gift = GIFTS.find(entry => entry.id === id);
+  const gift = CATALOG.find(entry => entry.id === id);
   if (!gift) throw new Error("Unknown virtual gift");
   if (save.redeemed.includes(id)) throw new Error("Gift already unlocked");
   if (save.cards < gift.cost) throw new Error("Not enough cards");
-  return { ...save, cards: save.cards - gift.cost, redeemed: [...save.redeemed, id], theme: id };
+  const equipment=gift.category==="theme"?{theme:id}:
+    gift.category==="marble"?{marbleSkin:id}:{trailEffect:id};
+  return { ...save, cards: save.cards - gift.cost,
+    redeemed: [...save.redeemed,id],...equipment };
 }
 
 export function selectTheme(save, id) {
   if (id !== "classic" && !save.redeemed.includes(id)) throw new Error("Theme not unlocked");
   return { ...save, theme: id };
+}
+
+/** Equipping a purchased visual item has no credit or physics side effects. */
+export function selectCosmetic(save,category,id){
+  const defaults={theme:"classic",marble:"steel",trail:"standard"};
+  const fields={theme:"theme",marble:"marbleSkin",trail:"trailEffect"};
+  if(!Object.hasOwn(defaults,category))throw new Error("Unknown cosmetic category");
+  if(id!==defaults[category]&&
+    (!CATALOG.some(item=>item.id===id&&item.category===category)||!save.redeemed.includes(id)))
+    throw new Error("Cosmetic not unlocked");
+  return {...save,[fields[category]]:id};
 }

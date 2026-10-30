@@ -1,16 +1,18 @@
-import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, GIFTS, STORAGE_KEY,
-  freshSave, restoreSave, depositMarbles, refundDeposit, canLaunch,
-  commitShot, settleFunded, redeem, selectTheme
-} from "./rules.mjs?v=0.10.8";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.10.8";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.10.8";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.10.8";
-import {createPegLayout} from "./board-layout.mjs?v=0.10.8";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.10.8";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.10.8";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.10.8";
-import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.10.8";
-import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.10.8";
+import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, CATALOG, ALL_COLLECTIBLES,
+  collectionProgress, STORAGE_KEY, freshSave, restoreSave,
+  depositMarbles, refundDeposit, canLaunch, commitShot, settleFunded,
+  redeem, selectCosmetic
+} from "./rules.mjs?v=0.11.0";
+import {marbleLook,trailLook} from "./cosmetics.mjs?v=0.11.0";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.11.0";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.11.0";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.11.0";
+import {createPegLayout} from "./board-layout.mjs?v=0.11.0";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.11.0";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.11.0";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.11.0";
+import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.11.0";
+import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.11.0";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -44,7 +46,8 @@ const el={balance:$("balance"),cards:$("cards"),status:$("launchStatus"),
   payoutInventory:$("payoutInventory"),
   ticketDispenser:$("ticketDispenser"),
   payoutTickets:$("payoutTickets"),payoutCardCount:$("payoutCardCount"),
-  giftList:$("giftList"),shopCards:$("shopCards"),info:$("infoDialog")};
+  giftList:$("giftList"),shopCards:$("shopCards"),info:$("infoDialog"),
+  collectionProgress:$("collectionProgress"),collectionBar:$("collectionBar")};
 const palette={
   classic:{gold:"#ffd083",red:"#ff586d",sky:"#81ddec",floor:"#17223e"},
   sunset:{gold:"#ffd18a",red:"#ff7a69",sky:"#f2ba7b",floor:"#412238"},
@@ -67,6 +70,7 @@ let collisionNoise=null,lastImpactSoundAt=-Infinity,impactFlashes=[],slotPulse=n
 let payoutFx=null; // The real reward is committed before the ceremony begins.
 let payoutDisplayState=null; // Stable real-physics state throughout payout.
 let lastPayoutClinkAt=-Infinity;
+let collectionView="album",collectionCategory="all";
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(save));}catch{}}
 function beep(f=520,d=.08,type="sine",volume=.05,delay=0){
   if(!soundEnabled)return;
@@ -264,6 +268,8 @@ function refresh(){
   $("stakeAmount").textContent=stake.toLocaleString("zh-CN");
   el.shopCards.textContent=save.cards;
   document.body.dataset.theme=save.theme;
+  document.body.dataset.marbleSkin=save.marbleSkin;
+  document.body.dataset.trailEffect=save.trailEffect;
   document.querySelectorAll("[data-add]").forEach(btn=>{
     const n=Number(btn.dataset.add);
     btn.disabled=phase!=="ready"||revealState==="rolling"||charging||save.marbles<n||stake+n>MAX_STAKE;
@@ -599,38 +605,71 @@ function nextRound(){
   settled=false;priorSave=null;shotStake=0;shotVelocity=null;
   updatePower();phase="ready";refresh();
 }
+function equippedItem(item){
+  return item.category==="theme"?save.theme===item.id:
+    item.category==="marble"?save.marbleSkin===item.id:save.trailEffect===item.id;
+}
 function renderGifts(){
-  el.shopCards.textContent=save.cards;el.giftList.replaceChildren();
-  for(const gift of GIFTS){
-    const item=document.createElement("div");item.className="gift-item";
-    const swatch=document.createElement("span");swatch.className="gift-swatch "+gift.id;
-    const copy=document.createElement("div");copy.className="gift-copy";
-    const name=document.createElement("b");name.textContent=gift.name;
-    const detail=document.createElement("small");detail.textContent=gift.description;
-    copy.append(name,detail);
-    const btn=document.createElement("button");btn.type="button";btn.className="gift-cta";
-    const owned=save.redeemed.includes(gift.id);
-    btn.textContent=owned?(save.theme===gift.id?"使用中":"使用"):gift.cost+" 张兑换";
-    btn.disabled=(!owned&&save.cards<gift.cost)||(owned&&save.theme===gift.id);
-    btn.addEventListener("click",()=>{
-      try{save=owned?selectTheme(save,gift.id):redeem(save,gift.id);
-        persist();refresh();renderGifts();beep(660,.2,"sine");}
-      catch(error){notify(error.message);}
+  el.shopCards.textContent=save.cards;
+  const progress=collectionProgress(save);
+  el.collectionProgress.textContent=progress.unlocked+" / "+progress.total+" 已解锁";
+  el.collectionBar.style.width=(progress.unlocked/progress.total*100).toFixed(1)+"%";
+  document.querySelectorAll("[data-collection-view]").forEach(btn=>{
+    const active=btn.dataset.collectionView===collectionView;
+    btn.classList.toggle("is-active",active);
+    btn.setAttribute("aria-pressed",String(active));
+  });
+  document.querySelectorAll("[data-collection-category]").forEach(btn=>{
+    const active=btn.dataset.collectionCategory===collectionCategory;
+    btn.classList.toggle("is-active",active);
+    btn.setAttribute("aria-pressed",String(active));
+  });
+  el.giftList.replaceChildren();
+  const all=collectionView==="album"?ALL_COLLECTIBLES:CATALOG;
+  const shown=all.filter(item=>collectionCategory==="all"||item.category===collectionCategory);
+  for(const item of shown){
+    const owned=item.cost===0||save.redeemed.includes(item.id);
+    const active=equippedItem(item);
+    const card=document.createElement("article");
+    card.className="collection-item"+(owned?" is-owned":" is-locked")+(active?" is-equipped":"");
+    card.dataset.item=item.id;
+    card.dataset.kind=item.category;
+    const swatch=document.createElement("span");
+    swatch.className="collection-preview preview-"+item.id;
+    swatch.setAttribute("aria-hidden","true");
+    const details=document.createElement("div");
+    details.className="collection-details";
+    const title=document.createElement("strong");
+    title.textContent=item.name;
+    const meta=document.createElement("span");
+    meta.className="collection-meta";
+    const kindLabel={theme:"机台主题",marble:"钢珠皮肤",trail:"尾迹效果"}[item.category];
+    meta.textContent=kindLabel+" · "+item.rarity;
+    const description=document.createElement("small");
+    description.textContent=item.description;
+    details.append(title,meta,description);
+    const button=document.createElement("button");
+    button.type="button";button.className="collection-action";
+    if(active){button.textContent="使用中";button.disabled=true;}
+    else if(owned){button.textContent="装备";button.disabled=false;}
+    else if(collectionView==="album"){button.textContent="未收藏";button.disabled=true;}
+    else{button.textContent=item.cost+" 张兑换";button.disabled=save.cards<item.cost;}
+    button.addEventListener("click",()=>{
+      try{
+        save=owned?selectCosmetic(save,item.category,item.id):redeem(save,item.id);
+        persist();refresh();renderGifts();beep(680,.17,"sine");
+      }catch(error){notify(error.message);}
     });
-    item.append(swatch,copy,btn);el.giftList.append(item);
-  }
-  if(save.theme!=="classic"){
-    const item=document.createElement("div");item.className="gift-item";
-    const copy=document.createElement("div");copy.className="gift-copy";
-    const name=document.createElement("b");name.textContent="经典霓虹";
-    const detail=document.createElement("small");detail.textContent="免费默认灯光";
-    copy.append(name,detail);
-    const btn=document.createElement("button");btn.type="button";btn.className="gift-cta";
-    btn.textContent="使用";
-    btn.addEventListener("click",()=>{save=selectTheme(save,"classic");persist();refresh();renderGifts();});
-    item.append(copy,btn);el.giftList.append(item);
+    card.append(swatch,details,button);
+    el.giftList.append(card);
   }
 }
+document.querySelectorAll("[data-collection-view]").forEach(btn=>btn.addEventListener("click",()=>{
+  collectionView=btn.dataset.collectionView;renderGifts();
+}));
+document.querySelectorAll("[data-collection-category]").forEach(btn=>btn.addEventListener("click",()=>{
+  collectionCategory=btn.dataset.collectionCategory;renderGifts();
+}));
 function rounded(x,y,w,h,r,fill,stroke){
   ctx.beginPath();ctx.roundRect(x,y,w,h,r);
   if(fill){ctx.fillStyle=fill;ctx.fill();}
@@ -648,11 +687,18 @@ function label(t,x,y,size=12,color="#d6d1e7",align="left",weight="500"){
   ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(String(t),x,y);
 }
 function marble(x,y,r,p){
-  ctx.shadowBlur=3;ctx.shadowColor=p.sky;
+  const look=marbleLook(save.marbleSkin);
+  const standard=save.marbleSkin==="steel";
+  ctx.shadowBlur=standard?3:5;
+  ctx.shadowColor=standard?p.sky:look.halo;
   const gr=ctx.createRadialGradient(x-2.5,y-3,1,x,y,r+1);
-  gr.addColorStop(0,"#fff");gr.addColorStop(.36,"#d8e8ed");
-  gr.addColorStop(.68,"#91b4c7");gr.addColorStop(1,"#3a526a");
-  circle(x,y,r,gr);ctx.shadowBlur=0;circle(x-2.3,y-2.6,1.4,"#fff");
+  gr.addColorStop(0,look.light);
+  gr.addColorStop(.36,standard?"#d8e8ed":look.light);
+  gr.addColorStop(.68,look.mid);
+  gr.addColorStop(1,look.dark);
+  circle(x,y,r,gr);
+  ctx.shadowBlur=0;
+  circle(x-2.3,y-2.6,1.4,look.light);
 }
 function resizeCanvas(){
   // Match the rendered CSS pixel size on desktop/mobile high-DPI screens.
@@ -856,16 +902,19 @@ function draw(timestamp){
   if(ball){
     if(!reduceMotion&&trail.length>1){
       ctx.save();ctx.globalCompositeOperation="screen";
-      ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=p.sky;
+      const style=trailLook(save.trailEffect);
+      ctx.lineCap="round";ctx.lineJoin="round";
+      ctx.strokeStyle=save.trailEffect==="standard"?p.sky:style.color;
+      ctx.shadowColor=style.secondary;ctx.shadowBlur=style.glow;
       for(let i=1;i<trail.length;i++){
         const q=trail[i],prev=trail[i-1];
         ctx.globalAlpha=trailOpacity(i,trail.length,q.speed);
-        ctx.lineWidth=1+4*i/trail.length;
+        ctx.lineWidth=(1+4*i/trail.length)*style.width;
         ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(q.x,q.y);ctx.stroke();
       }
       ctx.globalAlpha=.15;
       const latest=trail[trail.length-1];
-      circle(latest.x,latest.y,R+5,p.sky);
+      circle(latest.x,latest.y,R+5,save.trailEffect==="standard"?p.sky:style.secondary);
       ctx.restore();
     }
     marble(ball.x,ball.y,R,p);
@@ -1016,7 +1065,7 @@ document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("cli
   $(btn.dataset.close).close();
 }));
 $("resetBtn").addEventListener("click",()=>{
-  if(!confirm("确定清空所有虚拟弹珠、奖励卡和主题吗？此操作无法撤销。"))return;
+  if(!confirm("确定清空弹珠、奖励卡、收藏品和全部已解锁外观吗？此操作无法撤销。"))return;
   save=freshSave();round=null;stake=0;phase="ready";revealState="hidden";
   lampRoll={steps:[],step:-1,nextAt:0};
   ball=null;trail=[];impactFlashes=[];slotPulse=null;charge=0;charging=false;chargeMode=null;dragPointerId=null;

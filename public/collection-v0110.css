@@ -1,0 +1,107 @@
+/* v0.11.0: a compact, touch-friendly cosmetic collection inside existing dialog. */
+#shopDialog{width:min(94vw,580px);max-height:calc(100dvh - 24px);
+  padding:17px;overflow-y:auto;overscroll-behavior:contain;}
+#shopDialog .dialog-top{position:sticky;top:-17px;z-index:10;
+  padding:4px 0 8px;background:linear-gradient(#1c2334 90%,#1c233400);}
+#shopDialog h2{margin:8px 0;font-size:clamp(19px,3.5vw,26px)}
+#shopDialog .shop-lead{font-size:12px;line-height:1.5;margin:4px 0 10px}
+.collection-summary{
+  display:grid;grid-template-columns:1fr auto;align-items:center;
+  gap:6px 8px;padding:9px 12px;margin-bottom:9px;
+  border:1px solid #9e8a76;border-radius:9px;
+  background:linear-gradient(130deg,#273549,#1c293c);
+  color:#e3d7c8;font-size:11px;
+}
+.collection-summary strong{color:#ffe0ab;font-variant-numeric:tabular-nums}
+.collection-progress-track{grid-column:1/-1;height:6px;overflow:hidden;border-radius:9px;
+  border:1px solid #546071;background:#0b1526;}
+#collectionBar{height:100%;width:0;max-width:100%;
+  background:linear-gradient(90deg,#b6d5da,#e6bf86,#f7d7a1);transition:width .25s}
+.collection-views,.collection-filters{display:flex;gap:5px;min-width:0}
+.collection-views{margin-bottom:8px}
+.collection-filters{margin-bottom:9px}
+.collection-views button,.collection-filters button{
+  min-width:0;border:1px solid #536477;color:#d2d9e2;
+  background:linear-gradient(#313e52,#1b293e);
+  border-radius:6px;min-height:32px;font-size:11px;font-weight:700;
+  padding:5px 7px;white-space:nowrap;
+}
+.collection-views button{flex:1}
+.collection-filters button{flex:1}
+.collection-views button.is-active,.collection-filters button.is-active{
+  background:linear-gradient(#f9ddab,#caa578);border-color:#fff0c7;
+  color:#242b3d;box-shadow:inset 0 1px #fff7dd;
+}
+.collection-list{display:grid;grid-template-columns:1fr;gap:7px}
+.collection-item{
+  display:grid;grid-template-columns:46px minmax(0,1fr) auto;
+  align-items:center;gap:9px;padding:9px;
+  min-width:0;border:1px solid #657486;border-radius:9px;
+  background:linear-gradient(130deg,#2c394c,#172337);
+}
+.collection-item.is-equipped{border-color:#e0bf89;
+  background:linear-gradient(135deg,#414353,#273246);}
+.collection-item.is-locked{opacity:.72}
+.collection-preview{
+  position:relative;width:44px;height:44px;overflow:hidden;
+  display:block;border:1px solid #a7a5a6;border-radius:9px;
+  background:radial-gradient(circle at 35% 28%,#eaf4f7,#7f91a8 52%,#27344d);
+  box-shadow:inset 0 2px #ffffff50,0 2px 5px #070d1c;
+}
+.collection-preview::after{
+  content:"";position:absolute;top:10px;left:10px;width:22px;height:22px;
+  border-radius:50%;
+  background:radial-gradient(circle at 28% 25%,#fff,#c5d9e4 36%,#49667d 100%);
+  box-shadow:0 2px 8px #060c1e99;
+}
+.collection-preview.preview-sunset{background:linear-gradient(135deg,#ecb778,#bb615e,#552d4e)}
+.collection-preview.preview-mint{background:linear-gradient(135deg,#b1ffe0,#3b9a9c,#23425f)}
+.collection-preview.preview-violet{background:linear-gradient(135deg,#e8b6ff,#9b74d6,#483d83)}
+.collection-preview.preview-classic{background:linear-gradient(135deg,#ffd8a0,#a05b77,#263750)}
+.collection-preview.preview-sunset::after,.collection-preview.preview-mint::after,
+.collection-preview.preview-violet::after,.collection-preview.preview-classic::after{
+  border-radius:4px;width:25px;height:18px;top:14px;left:9px;
+  background:linear-gradient(#fdf5da6b,#263c6680);border:1px solid #fff9;
+}
+.collection-preview.preview-pearl::after{background:radial-gradient(circle at 26% 24%,#fffefa,#ebecf0 36%,#9a9bb3)}
+.collection-preview.preview-ember::after{background:radial-gradient(circle at 26% 24%,#fff6c5,#e6b46a 42%,#934e3c)}
+.collection-preview.preview-nebula::after{background:radial-gradient(circle at 26% 24%,#f2f1ff,#a09bd8 42%,#4b4396)}
+.collection-preview.preview-comet::after,.collection-preview.preview-frost::after,
+.collection-preview.preview-prism::after,.collection-preview.preview-standard::after{
+  width:30px;height:5px;left:7px;top:20px;border-radius:8px;transform:rotate(-27deg);
+  background:linear-gradient(90deg,transparent,#f4cf83 70%,#fff9d7);
+  box-shadow:0 0 9px #f4c581a0;
+}
+.collection-preview.preview-frost::after{background:linear-gradient(90deg,transparent,#7ecdfa,#ecfbff);box-shadow:0 0 9px #7bc9f8}
+.collection-preview.preview-prism::after{background:linear-gradient(90deg,transparent,#a994ff,#ffd1e9);box-shadow:0 0 9px #b7a8ff}
+.collection-preview.preview-standard::after{background:linear-gradient(90deg,transparent,#83b8d2,#e4f8ff)}
+.collection-details{display:flex;flex-direction:column;min-width:0;gap:3px}
+.collection-details strong{font-size:12px;color:#fff1dd}
+.collection-details .collection-meta{font-size:10px;color:#e8c392}
+.collection-details small{font-size:10px;color:#aebac8;line-height:1.35}
+.collection-action{border:1px solid #e8c28a;border-radius:6px;
+  background:linear-gradient(#e8c999,#b68a58);color:#272838;
+  padding:6px 8px;min-height:34px;max-width:96px;white-space:nowrap;
+  font-size:11px;font-weight:800}
+.collection-action:disabled{background:#2c384a;color:#acb1bf;border-color:#5d6675}
+.collection-item.is-equipped .collection-action:disabled{
+  color:#e5d0aa;border-color:#a18b6b;background:#434652}
+#shopDialog .rule-warning{font-size:10px;line-height:1.55}
+@media(max-width:370px){
+  #shopDialog{padding:11px}
+  .collection-item{grid-template-columns:35px minmax(0,1fr) auto;padding:6px;gap:6px}
+  .collection-preview{width:35px;height:35px}
+  .collection-preview::after{transform:scale(.77);transform-origin:top left}
+  .collection-details strong{font-size:11px}
+  .collection-details small{font-size:9px}
+  .collection-action{font-size:10px;padding:5px 6px;min-height:30px}
+  .collection-filters button{font-size:10px;padding:3px}
+}
+/* Theme unlocks change the real cabinet accent as well as the existing board palette. */
+body[data-theme="sunset"] .cabinet-top{border-color:#f5b18b!important}
+body[data-theme="mint"] .cabinet-top{border-color:#9ae9c4!important}
+body[data-theme="violet"] .cabinet-top{border-color:#d2acee!important}
+body[data-theme="sunset"] .machine-lamps{border-color:#e9a184!important}
+body[data-theme="mint"] .machine-lamps{border-color:#90e0bf!important}
+body[data-theme="violet"] .machine-lamps{border-color:#bd9de1!important}
+@media(prefers-reduced-motion:reduce){#collectionBar{transition:none}}
