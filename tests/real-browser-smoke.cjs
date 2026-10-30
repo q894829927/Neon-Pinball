@@ -378,14 +378,22 @@ const {chromium}=require("playwright");
           assert.equal(beforeReload.marbleSkin,"pearl");
           await page.screenshot({path:"/tmp/pinball-collection-desktop.png",fullPage:true});
           await page.locator("#shopDialog [data-close='shopDialog']").click();
-          await page.reload({waitUntil:"networkidle"});
-          assert.deepEqual(errors,[],"No console errors after cosmetic save reload");
-          const afterReload=await page.evaluate(()=>{
+          // The desktop test bootstraps an old save using page.addInitScript.
+          // A page.reload would reinsert that old save and mask persistence.
+          // A second page in the same browser context shares localStorage,
+          // but does not inherit the first page's page-level init script.
+          const restoredPage=await ctx.newPage();
+          const restoredErrors=[];
+          restoredPage.on("pageerror",e=>restoredErrors.push(String(e)));
+          await restoredPage.goto("http://127.0.0.1:8766/games/pinball/",{waitUntil:"networkidle"});
+          const afterReload=await restoredPage.evaluate(()=>{
             const s=JSON.parse(localStorage.getItem("neon-pinball-arcade-v1"));
             return {cards:s.cards,marbleSkin:s.marbleSkin,theme:s.theme,stake:s.pendingStake};
           });
-          assert.deepEqual(afterReload,beforeReload,"Unlocked cosmetics survive refresh");
-          assert.equal(await page.locator("#mobileStake").textContent(),String(afterReload.stake));
+          assert.deepEqual(restoredErrors,[],"No browser errors after restoring cosmetics");
+          assert.deepEqual(afterReload,beforeReload,"Unlocked cosmetics survive a fresh page");
+          assert.equal(await restoredPage.locator("#mobileStake").textContent(),String(afterReload.stake));
+          await restoredPage.close();
         }else{
           // No purchase, just ensure all category cards and previews remain
           // readable without forcing page scroll on a real touch device.
