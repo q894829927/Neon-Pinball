@@ -245,7 +245,7 @@ const {chromium}=require("playwright");
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
           const {PAYOUT_RADIUS,createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
-            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.10.8");
+            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.11.0");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
           const receiver=document.getElementById("payoutReceiver").getBoundingClientRect();
           const bounds={left:tray.left-receiver.left,right:tray.right-receiver.left,
@@ -273,7 +273,7 @@ const {chromium}=require("playwright");
           "Marble-marble physics must produce actual contact impulses");
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.8");
+            "/games/pinball/payout-tray.mjs?v=0.11.0");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
@@ -344,6 +344,56 @@ const {chromium}=require("playwright");
         assert.match(result,/颗|槽/);
         assert.deepEqual(errors,[],"No runtime errors after physics settlement");
         await page.screenshot({path:"/tmp/pinball-finished-shot.png",fullPage:true});
+      }
+      // Verify the full collectible workflow in a real browser. Existing
+      // older themes must remain, and equipping never consumes more cards.
+      if(profile.name==="desktop"||profile.name==="phone"){
+        await page.locator("#giftBtn").click();
+        await page.locator("#shopDialog").waitFor({state:"visible"});
+        assert.equal(await page.locator('[data-collection-view="album"]').getAttribute("aria-pressed"),"true");
+        assert.equal(await page.locator("#giftList .collection-item").count(),12);
+        assert.equal(await page.locator("#collectionProgress").textContent(),"0 / 9 已解锁");
+        const categoryTabs=await page.locator("[data-collection-category]").count();
+        assert.equal(categoryTabs,4);
+        await page.locator('[data-collection-category="marble"]').click();
+        assert.equal(await page.locator("#giftList .collection-item").count(),4);
+        await page.locator('[data-collection-view="shop"]').click();
+        assert.equal(await page.locator("#giftList .collection-item").count(),3);
+        if(profile.name==="desktop"){
+          const initialBalance=await page.locator("#balance").textContent();
+          const startCards=Number(await page.locator("#shopCards").textContent());
+          await page.locator('[data-item="pearl"] .collection-action').click();
+          assert.equal(Number(await page.locator("#shopCards").textContent()),startCards-1);
+          assert.equal(await page.locator("#collectionProgress").textContent(),"1 / 9 已解锁");
+          assert.equal(await page.locator("#balance").textContent(),initialBalance);
+          await page.locator('[data-collection-view="album"]').click();
+          assert.equal(await page.locator('[data-item="pearl"] .collection-action').textContent(),"使用中");
+          await page.locator('[data-item="steel"] .collection-action').click();
+          assert.equal(await page.locator('[data-item="pearl"] .collection-action').textContent(),"装备");
+          await page.locator('[data-item="pearl"] .collection-action').click();
+          const beforeReload=await page.evaluate(()=>{
+            const s=JSON.parse(localStorage.getItem("neon-pinball-arcade-v1"));
+            return {cards:s.cards,marbleSkin:s.marbleSkin,theme:s.theme,stake:s.pendingStake};
+          });
+          assert.equal(beforeReload.marbleSkin,"pearl");
+          await page.screenshot({path:"/tmp/pinball-collection-desktop.png",fullPage:true});
+          await page.locator("#shopDialog [data-close='shopDialog']").click();
+          await page.reload({waitUntil:"networkidle"});
+          assert.deepEqual(errors,[],"No console errors after cosmetic save reload");
+          const afterReload=await page.evaluate(()=>{
+            const s=JSON.parse(localStorage.getItem("neon-pinball-arcade-v1"));
+            return {cards:s.cards,marbleSkin:s.marbleSkin,theme:s.theme,stake:s.pendingStake};
+          });
+          assert.deepEqual(afterReload,beforeReload,"Unlocked cosmetics survive refresh");
+          assert.equal(await page.locator("#mobileStake").textContent(),String(afterReload.stake));
+        }else{
+          // No purchase, just ensure all category cards and previews remain
+          // readable without forcing page scroll on a real touch device.
+          const cards=await page.locator("#giftList .collection-item").count();
+          assert.equal(cards,3);
+          await page.screenshot({path:"/tmp/pinball-collection-phone.png",fullPage:false});
+          await page.locator("#shopDialog [data-close='shopDialog']").click();
+        }
       }
       if(profile.name==="desktop")
         assert.ok(evidence.scrollHeight<=profile.height+2,"Desktop unexpectedly scrolls");

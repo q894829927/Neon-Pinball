@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   MIN_STAKE,DEPOSIT_STEPS,MULTIPLIERS,SLOT_COUNT,WIN_SLOTS_BY_MULTIPLIER,winningSlotCount,STARTING_MARBLES,
   freshSave,restoreSave,createRound,canAfford,settle,settleFunded,depositMarbles,
-  refundDeposit,commitShot,canLaunch,redeem,selectTheme,GIFTS
+  refundDeposit,commitShot,canLaunch,redeem,selectTheme,selectCosmetic,GIFTS,
+  MARBLE_SKINS,TRAIL_EFFECTS,CATALOG,DEFAULT_LOOKS,collectionProgress
 } from "../public/rules.mjs";
 
 test("game begins with exactly 100 virtual marbles",()=>{
@@ -519,7 +520,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.8/);
+  assert.match(html,/class="game-version"[^>]*>v0\.11\.0/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -551,11 +552,11 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
-  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-physics.mjs","payout-feedback.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.10.8"'),"Versioned import: "+name);
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-physics.mjs","payout-feedback.mjs","cosmetics.mjs"]){
+    assert.ok(js.includes('"./'+name+'?v=0.11.0"'),"Versioned import: "+name);
   }
-  for(const name of ["style.css","mobile.css","fullscreen.css","cabinet-v0108.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.8'));
+  for(const name of ["style.css","mobile.css","fullscreen.css","cabinet-v0108.css","collection-v0110.css","game.js"]){
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.11.0'));
   }
 });
 
@@ -584,7 +585,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.8/);
+  assert.match(html,/class="game-version"[^>]*>v0\.11\.0/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -792,8 +793,8 @@ test("v0.10.8 unifies chrome and glass without changing the 420×710 board or pa
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const design=readFileSync(new URL("../public/cabinet-v0108.css",import.meta.url),"utf8");
   const rules=readFileSync(new URL("../public/rules.mjs",import.meta.url),"utf8");
-  const i=html.indexOf('fullscreen.css?v=0.10.8');
-  const j=html.indexOf('cabinet-v0108.css?v=0.10.8');
+  const i=html.indexOf('fullscreen.css?v=0.11.0');
+  const j=html.indexOf('cabinet-v0108.css?v=0.11.0');
   assert.ok(i>=0&&j>i,"Visual overrides must load after viewport-fit rules");
   assert.match(html,/width="420" height="710"/);
   assert.match(html,/data-mult-lamp="2"/);
@@ -809,4 +810,87 @@ test("v0.10.8 unifies chrome and glass without changing the 420×710 board or pa
   assert.match(game,/const y=PLUNGER\.restY\+\(charging\?charge:0\)\*PLUNGER\.travel/);
   assert.match(rules,/settleFunded/);
   assert.doesNotMatch(design,/\.cabinet\s*\{[^}]*display\s*:\s*none/s);
+});
+
+test("v0.11.0 collection has three categories, valid costs and nine unique cosmetic unlocks",()=>{
+  assert.equal(GIFTS.length,3);
+  assert.equal(MARBLE_SKINS.length,3);
+  assert.equal(TRAIL_EFFECTS.length,3);
+  assert.equal(CATALOG.length,9);
+  assert.equal(DEFAULT_LOOKS.length,3);
+  assert.equal(new Set(CATALOG.map(item=>item.id)).size,CATALOG.length);
+  assert.ok(CATALOG.every(item=>Number.isInteger(item.cost)&&item.cost>0));
+  assert.deepEqual(collectionProgress(freshSave()),{unlocked:0,total:9});
+  assert.equal(freshSave().marbleSkin,"steel");
+  assert.equal(freshSave().trailEffect,"standard");
+});
+test("v0.11.0 old unlocked themes and balance migrate without losing existing purchases",()=>{
+  const s=restoreSave({marbles:540,cards:4,rounds:20,wins:9,best:400,
+    earned:1800,redeemed:["sunset","mint","mint"],theme:"mint",
+    pendingStake:12,pendingRound:{multiplier:6,lit:[1,3,5]}});
+  assert.equal(s.marbles,540);assert.equal(s.cards,4);
+  assert.equal(s.theme,"mint");
+  assert.equal(s.marbleSkin,"steel");
+  assert.equal(s.trailEffect,"standard");
+  assert.deepEqual(s.redeemed,["sunset","mint"]);
+  assert.deepEqual(collectionProgress(s),{unlocked:2,total:9});
+  assert.equal(s.pendingStake,12);
+  assert.deepEqual(s.pendingRound,{multiplier:6,lit:[1,3,5]});
+});
+test("v0.11.0 cards unlock steel skins and tails once, equip freely after redemption",()=>{
+  let s={...freshSave(),cards:20};
+  s=redeem(s,"pearl");
+  assert.equal(s.cards,19);
+  assert.equal(s.marbleSkin,"pearl");
+  assert.ok(s.redeemed.includes("pearl"));
+  s=redeem(s,"prism");
+  assert.equal(s.cards,14);
+  assert.equal(s.trailEffect,"prism");
+  const balance=s.cards,redeemed=s.redeemed.slice();
+  s=selectCosmetic(s,"marble","steel");
+  s=selectCosmetic(s,"trail","standard");
+  s=selectCosmetic(s,"marble","pearl");
+  s=selectCosmetic(s,"trail","prism");
+  assert.equal(s.cards,balance);
+  assert.deepEqual(s.redeemed,redeemed);
+  assert.throws(()=>redeem(s,"pearl"),/already/i);
+  assert.throws(()=>selectCosmetic(s,"trail","frost"),/not unlocked/i);
+  assert.throws(()=>selectCosmetic(s,"marble","prism"));
+  assert.throws(()=>selectCosmetic(s,"bad","pearl"));
+  const reloaded=restoreSave(JSON.parse(JSON.stringify(s)));
+  assert.equal(reloaded.marbleSkin,"pearl");
+  assert.equal(reloaded.trailEffect,"prism");
+  assert.equal(reloaded.cards,14);
+  assert.deepEqual(collectionProgress(reloaded),{unlocked:2,total:9});
+  assert.equal(reloaded.marbles,100,"Cosmetic changes must not change marble balance");
+});
+test("v0.11.0 invalid or forged equipped appearances are sanitized",()=>{
+  const s=restoreSave({cards:7,redeemed:["pearl","nebula","sunset","unknown","pearl"],
+    theme:"mint",marbleSkin:"metallic-gold",trailEffect:"prism"});
+  assert.deepEqual(s.redeemed,["pearl","nebula","sunset"]);
+  assert.equal(s.theme,"classic");
+  assert.equal(s.marbleSkin,"steel");
+  assert.equal(s.trailEffect,"standard");
+  assert.throws(()=>redeem({...freshSave(),cards:0},"prism"));
+});
+test("v0.11.0 shop album selectors and previews are mounted, looks are purely visual",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/collection-v0110.css",import.meta.url),"utf8");
+  const render=readFileSync(new URL("../public/cosmetics.mjs",import.meta.url),"utf8");
+  for(const id of ["collectionProgress","collectionBar","giftList","shopCards"])
+    assert.match(html,new RegExp('id="'+id+'"'));
+  for(const view of ["album","shop"])assert.match(html,new RegExp('data-collection-view="'+view+'"'));
+  for(const category of ["all","theme","marble","trail"])
+    assert.match(html,new RegExp('data-collection-category="'+category+'"'));
+  assert.match(js,/selectCosmetic\(save,item.category,item.id\)/);
+  assert.match(js,/collectionView==="album"\?ALL_COLLECTIBLES:CATALOG/);
+  assert.match(js,/marbleLook\(save.marbleSkin\)/);
+  assert.match(js,/trailLook\(save.trailEffect\)/);
+  assert.match(js,/ctx\.shadowColor=style.secondary/);
+  assert.match(render,/MARBLE_LOOKS/);
+  assert.match(render,/TRAIL_LOOKS/);
+  assert.match(css,/\.collection-item\{/);
+  assert.match(css,/\.collection-progress-track/);
 });
