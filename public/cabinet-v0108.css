@@ -1,0 +1,248 @@
+/* Neon-Pinball v0.10.8 — one coherent industrial arcade cabinet.
+   Applied AFTER fullscreen.css so viewport-fitting geometry stays authoritative.
+   All surfaces are CSS; no extra image assets, extra scroll, or overlays. */
+:root{
+  --machine-metal:#b0b7bf;
+  --machine-dark-steel:#273141;
+  --machine-brass:#c9a373;
+  --machine-gold:#f7d29a;
+  --machine-glass:#7ca4bc;
+  --machine-well:#0c1527;
+  --machine-recess:#111a2d;
+}
+.cabinet{
+  border-color:#9d9faa!important;
+  background:
+    linear-gradient(90deg,#515967 0%,#eef0eb 1.6%,#a1a8b5 3.3%,#45485a 5.3%,
+      #252c3c 9%,#222839 51%,#323948 90%,#4b5260 94.5%,
+      #b5b9be 97%,#515869 100%)!important;
+  box-shadow:0 0 0 2px #3d4353,0 0 0 3px #a39b8663,
+    inset 0 0 0 1px #f5e4c17a,0 13px 33px #0507159e!important;
+}
+.cabinet::before{
+  border-color:#f2d6a45c!important;
+  box-shadow:inset 0 1px #f9eccc26!important;
+}
+.cabinet-top{
+  position:relative;
+  background:linear-gradient(180deg,#3c4656,#232a3b 36%,#141c30 100%)!important;
+  border:1px solid #b9a681b0!important;
+  box-shadow:inset 0 1px #f9e3c49e,inset 0 -2px 6px #070b18b5,0 2px 3px #05071383!important;
+}
+.cabinet-top::after{
+  content:"";pointer-events:none;position:absolute;
+  left:22%;right:22%;bottom:2px;height:1px;
+  background:linear-gradient(90deg,transparent,#f4d2a87c,transparent);
+}
+.cabinet-logo{
+  color:#ffe3af!important;font-weight:800!important;
+  letter-spacing:clamp(.35px,.24vw,1.3px)!important;
+  text-shadow:0 1px 0 #11192d,0 0 12px #edb7776e!important;
+}
+.cabinet-logo span{color:#bfc9d9!important}
+.cabinet-lights{align-items:center}
+.cabinet-lights i{
+  border:1px solid #ffe4a488;background:radial-gradient(circle at 32% 30%,#fff4d2,#eab971 58%,#815d48)!important;
+  box-shadow:0 0 0 2px #151d2b,inset 0 1px #ffffffad,0 0 6px #f4c58a70!important;
+}
+.cabinet-lights i:nth-child(even){
+  background:radial-gradient(circle at 35% 30%,#fff3ec,#df8d8c 58%,#763e5b)!important;
+  box-shadow:0 0 0 2px #151d2b,0 0 7px #dd91915b!important;
+}
+/* Multiply lamps all share the same machined sockets. Only the actual
+   roulette state changes the emission. Never mark a lamp as lit for a loss. */
+.machine-lamps{
+  background:linear-gradient(180deg,#111928 0%,#20283a 30%,#0b1122 100%)!important;
+  border:1px solid #b69d7e!important;
+  box-shadow:inset 0 2px 7px #000c,inset 0 -1px #d6c09d38,0 1px #fff0cd54!important;
+}
+.mult-lamp{
+  position:relative;
+  min-width:0;overflow:hidden;
+  color:#d2d5e2!important;
+  border:1px solid #5d687b!important;
+  border-radius:6px!important;
+  background:linear-gradient(180deg,#404a5d 0%,#222c41 45%,#141c2d 100%)!important;
+  box-shadow:inset 0 1px 1px #e0edf535,inset 0 -3px 7px #03070fd9,
+    0 1px 0 #d5bf9770!important;
+  transform:none!important;
+}
+.mult-lamp::before{
+  top:4px;left:9%;width:75%;height:27%;transform:none;
+  border-radius:50%;
+  background:linear-gradient(180deg,#f5faff27,transparent)!important;
+  pointer-events:none;
+}
+.mult-lamp::after{
+  content:"";position:absolute;bottom:3px;left:50%;width:22%;height:2px;
+  transform:translateX(-50%);border-radius:3px;background:#667687;
+  box-shadow:0 1px #101423;
+}
+.mult-lamp b{color:inherit!important;text-shadow:0 1px #0008;letter-spacing:-.6px}
+.mult-lamp small{color:#b4bac9!important;font-weight:700!important}
+.mult-lamp.is-rolling{
+  color:#fff5d6!important;border-color:#f5d3a0!important;
+  background:linear-gradient(180deg,#b98950,#704935 52%,#423147)!important;
+  box-shadow:inset 0 1px #fff5ca9e,inset 0 -3px 7px #542725bc,0 0 12px #f9c77b91!important;
+}
+.mult-lamp.is-final{
+  color:#322438!important;border-color:#fff5c5!important;
+  background:linear-gradient(180deg,#fff3cd,#ffd791 47%,#e9aa66 100%)!important;
+  box-shadow:inset 0 2px #fffbe1,inset 0 -2px #bd75458c,0 0 12px #fbd69cad!important;
+  animation:machineFinalGlow 1.85s ease-in-out infinite alternate!important;
+}
+.mult-lamp.is-final small,.mult-lamp.is-rolling small{color:inherit!important;opacity:.88}
+.mult-lamp.is-final::after,.mult-lamp.is-rolling::after{background:#fff6d0;box-shadow:0 0 5px #ffe69c}
+@keyframes machineFinalGlow{
+  from{filter:brightness(1);box-shadow:inset 0 2px #fffbe1,0 0 9px #f4be857c}
+  to{filter:brightness(1.06);box-shadow:inset 0 2px #fffbe1,0 0 17px #ffe2b6b4}
+}
+.cabinet-neck{color:#e3cda9!important}
+.lamp-status{color:#f4d6ac!important;text-shadow:0 1px #101724;letter-spacing:0!important}
+.machine-feeds{align-items:center;isolation:isolate}
+.ticket-dispenser,.machine-feeds .marble-hopper{
+  min-height:15px!important;
+  background:linear-gradient(180deg,#525b68,#30394c 40%,#1b2232)!important;
+  color:#e7decf!important;
+  border:1px solid #bba77e!important;
+  border-radius:5px!important;
+  box-shadow:inset 0 1px #f3e8d35d,0 2px 3px #0509169e!important;
+  font-weight:800;
+}
+.ticket-die{
+  background:#071224!important;border-color:#d6bf96!important;
+  box-shadow:inset 0 2px 3px #000e,0 1px #d4b98a4f!important;
+}
+.ticket-dispenser.is-printing{
+  box-shadow:inset 0 1px #f8e6cf82,0 0 9px #e5bc7188!important;
+}
+.screen-wrap{
+  border-color:#202c3d!important;
+  background:#071123!important;
+  border-radius:8px!important;
+  box-shadow:0 0 0 1px #d7bd977a,inset 0 0 0 2px #14192c,inset 0 0 30px #000c!important;
+}
+.screen-wrap::after{
+  content:"";pointer-events:none;position:absolute;inset:2px;
+  border-radius:5px;z-index:1;
+  background:linear-gradient(135deg,#c8dff914 0%,transparent 19%,transparent 79%,#cfb89a09);
+}
+.plunger-grip{z-index:3}
+.plunger-grip::after{
+  content:"";position:absolute;inset:2% 3px 2% auto;width:1px;pointer-events:none;
+  background:linear-gradient(180deg,transparent,#ffd7a74d 35%,#ffd7a74d 75%,transparent);
+}
+.machine-payout{
+  background:linear-gradient(160deg,#3b4351,#212b3b 34%,#111a2a 100%)!important;
+  border-color:#c4a87d!important;
+  border-radius:7px!important;
+  box-shadow:inset 0 1px #f5dfbf4e,inset 0 -3px 7px #020615b2,0 1px 0 #fff2d13b!important;
+}
+.payout-marble-receiver{
+  border-color:#8b9eb0!important;border-radius:5px!important;
+  background:linear-gradient(180deg,#263647,#172638 45%,#0a1c30 100%)!important;
+  box-shadow:inset 0 1px 4px #030714b7!important;
+}
+.payout-receiver-name{color:#f1d8b1!important;letter-spacing:0!important}
+.payout-receiver-name span{color:#abb9c9!important}
+.payout-marble-mouth{
+  border-color:#d6b987!important;
+  background:radial-gradient(circle,#050e1a 35%,#1c3043 69%,#7c8992 100%)!important;
+  box-shadow:inset 0 1px 2px #020712,0 0 0 1px #242c3d!important;
+}
+.payout-marble-mouth::before{display:none!important}
+.payout-collection-tray{
+  border-color:#b2c9d8bf!important;
+  border-top-color:#f5d6a6!important;
+  background:linear-gradient(180deg,#cee9f510,#529abd22 57%,#8cc7d94e)!important;
+  box-shadow:inset 0 -5px 9px #8fc4e531,inset 0 1px #fff8c083!important;
+}
+.payout-spill-platform{
+  background:linear-gradient(180deg,#c1c7c5,#697c87 50%,#333e50)!important;
+  border-top-color:#eacda0!important;border-bottom-color:#344459!important;
+}
+.machine-inline-summary{
+  border:1px solid #4f6173;border-radius:5px;
+  background:linear-gradient(180deg,#101a2a,#17243a 100%);
+}
+.payout-status-content{min-height:0;gap:0!important}
+.payout-headline{
+  max-width:100%;color:#e2d5bf!important;
+  font-weight:800!important;text-align:center;
+}
+.payout-earnings{color:#ffe4af!important}
+.inline-result .result-primary #resultTitle{color:#d6e2e9!important}
+.inline-result .result-primary .result-number{
+  color:#ffe1a3!important;text-shadow:0 0 6px #e5b67342;
+}
+.inline-result .result-detail{color:#a6bacb!important}
+.inline-result .card-earned{color:#f7cc98!important}
+.inline-result .jackpot-banner{color:#ffda8b!important;text-shadow:0 0 7px #ffd08e60}
+.machine-payout.is-big-win{
+  border-color:#fbe0a8!important;
+  box-shadow:inset 0 0 14px #ffd49a1f,0 0 9px #e9ba846c!important;
+}
+.payout-actions{flex-shrink:0;border-top:1px solid #66748460}
+.payout-actions button{
+  background:linear-gradient(180deg,#eacb99,#be915e)!important;
+  border:1px solid #f6dfb6!important;
+  color:#262635!important;
+  font-weight:900!important;border-radius:4px!important;
+  box-shadow:inset 0 1px #fff7dc78,0 1px 2px #0509148c!important;
+}
+.payout-actions button:focus-visible{outline:2px solid #fff2c5;outline-offset:1px}
+.launch-console{border-color:#4d5368}
+.charge-head{color:#d9c8ae!important}
+.charge-head b{color:#f0dfc0}
+.power-track{
+  overflow:hidden;
+  background:linear-gradient(#0a1323,#26364a)!important;
+  border:1px solid #8c978e!important;
+  box-shadow:inset 0 1px 4px #000a,0 1px #fff0d121!important;
+}
+#powerFill{
+  border-radius:inherit;background:linear-gradient(90deg,#7797a2,#f0c083 65%,#ffe4ad)!important;
+  box-shadow:inset 0 1px #fff3dd66,0 0 6px #f0c28a6c!important;
+  transition:width 50ms linear;
+}
+.machine-section[data-pull="charging"] .power-track{border-color:#f3c684!important;box-shadow:0 0 10px #efba7070,inset 0 1px 3px #020819!important}
+.machine-section[data-pull="charging"] #powerFill{filter:brightness(1.16)}
+.machine-section[data-pull="charging"] .screen-wrap{box-shadow:0 0 0 1px #f4c98a91,inset 0 0 0 2px #14192c,inset 0 0 30px #000c!important}
+.mobile-playbar,.wallet-panel{
+  background:linear-gradient(155deg,#303b49,#1d283b 52%,#171e2f)!important;
+  border-color:#8a8992!important;
+  box-shadow:inset 0 1px #f5e4cc35,0 4px 16px #060b1b6e!important;
+}
+.bet-choice{
+  background:linear-gradient(180deg,#455469,#26364a)!important;
+  border-color:#778699!important;color:#f3dfc5!important;
+}
+.bet-choice:not(:disabled):active{background:linear-gradient(180deg,#bd945e,#665041)!important}
+.bet-choice:focus-visible{outline-color:#ffe3b2}
+/* Fit is still owned by fullscreen.css/fitMachine(): do not add margins,
+   width constraints, line wrapping, or vertical cabinet chrome at 320px. */
+@media(max-width:820px) and (orientation:portrait){
+  .machine-payout{border-radius:5px!important}
+  .machine-inline-summary{border-radius:4px}
+  .cabinet-logo{letter-spacing:.3px!important}
+  .machine-feeds .ticket-dispenser{font-size:8px!important;min-width:71px}
+  .machine-feeds .marble-hopper{font-size:8px!important}
+  .payout-receiver-name span{display:none}
+}
+@media(max-width:370px) and (orientation:portrait){
+  .ticket-dispenser{min-width:66px!important}
+  .machine-lamps{gap:2px!important}
+  .mult-lamp b{letter-spacing:-.8px}
+  .machine-inline-summary{border-width:1px}
+}
+@media(max-height:620px) and (orientation:landscape){
+  .cabinet-logo{font-size:clamp(10px,1.5vw,13px)}
+  .mult-lamp b{font-size:12px}
+  .ticket-dispenser{min-width:73px}
+  .payout-status-content{overflow:hidden}
+}
+@media(prefers-reduced-motion:reduce){
+  .mult-lamp.is-final{animation:none!important}
+  #powerFill{transition:none!important}
+  .payout-actions button{transition:none!important}
+}

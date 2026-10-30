@@ -82,6 +82,55 @@ const {chromium}=require("playwright");
           "Desktop cabinet must remain readable");
       }
       assert.ok(evidence.canvasWidth>0&&evidence.canvasHeight>0);
+      // v0.10.8 design checks across all existing device profiles.
+      const visual=await page.evaluate(()=>{
+        const select=query=>document.querySelector(query);
+        const rect=query=>select(query).getBoundingClientRect();
+        const palette=query=>getComputedStyle(select(query));
+        const lamps=[...document.querySelectorAll(".mult-lamp")].map(node=>{
+          const b=node.querySelector("b"),small=node.querySelector("small");
+          return {bounds:node.getBoundingClientRect().toJSON(),
+            value:b.getBoundingClientRect().toJSON(),
+            caption:small.getBoundingClientRect().toJSON(),
+            background:getComputedStyle(node).backgroundImage};
+        });
+        const machine=rect(".cabinet"),header=rect(".cabinet-top"),
+          lampsFrame=rect(".machine-lamps"),board=rect("#board"),
+          payout=rect(".machine-payout");
+        const features={
+          link:!!select('link[href*="cabinet-v0108.css"]'),
+          cabinetBackground:palette(".cabinet").backgroundImage,
+          nozzleRadius:palette(".payout-marble-mouth").borderRadius,
+          powerRail:palette(".power-track").backgroundImage,
+          handleHitbox:rect(".plunger-grip").toJSON(),
+          state:select(".machine-section").dataset.pull,
+          cabinet:machine.toJSON(),header:header.toJSON(),
+          frame:lampsFrame.toJSON(),board:board.toJSON(),payout:payout.toJSON(),
+          lamps
+        };
+        return features;
+      });
+      assert.ok(visual.link,"New unified design stylesheet must load");
+      assert.match(visual.cabinetBackground,/linear-gradient/,"Cabinet chrome is applied");
+      assert.match(visual.powerRail,/linear-gradient/,"Plunger force strip is styled");
+      assert.equal(visual.lamps.length,5);
+      assert.equal(visual.state,"idle");
+      assert.ok(visual.board.top>=visual.frame.bottom-3);
+      assert.ok(visual.payout.top>=visual.board.bottom-1);
+      assert.ok(visual.handleHitbox.width>=30&&visual.handleHitbox.height>=20,
+        "Mechanical lever keeps its original responsive touch area");
+      for(let n=0;n<visual.lamps.length;n++){
+        const lamp=visual.lamps[n],left=visual.frame.left,right=visual.frame.right;
+        assert.ok(lamp.bounds.left>=left-2&&lamp.bounds.right<=right+2,
+          "Lamp socket "+n+" must not spill outside top metal housing");
+        assert.ok(lamp.value.left>=lamp.bounds.left-2&&lamp.value.right<=lamp.bounds.right+2,
+          "Multiplier numerals must fit into socket "+n);
+        assert.ok(lamp.caption.left>=lamp.bounds.left-2&&lamp.caption.right<=lamp.bounds.right+2,
+          "Slot legend must fit into socket "+n);
+        if(n)assert.ok(lamp.bounds.left>=visual.lamps[n-1].bounds.right-2,
+          "Five multiplier lamps must not overlap one another");
+      }
+
       const outlets=await page.evaluate(()=>{
         const rect=(id)=>document.getElementById(id).getBoundingClientRect();
         const ticket=rect("ticketDispenser"),hopper=rect("marbleHopper"),
@@ -196,7 +245,7 @@ const {chromium}=require("playwright");
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
           const {PAYOUT_RADIUS,createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
-            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.10.7");
+            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.10.8");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
           const receiver=document.getElementById("payoutReceiver").getBoundingClientRect();
           const bounds={left:tray.left-receiver.left,right:tray.right-receiver.left,
@@ -224,7 +273,7 @@ const {chromium}=require("playwright");
           "Marble-marble physics must produce actual contact impulses");
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.7");
+            "/games/pinball/payout-tray.mjs?v=0.10.8");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
