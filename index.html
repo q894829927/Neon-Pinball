@@ -7,11 +7,12 @@
   <meta name="theme-color" content="#0b0c1d">
   <meta name="description" content="单人街机倍率弹珠机">
   <title>星运弹珠局 · Neon Pinball</title>
-  <link rel="stylesheet" href="/games/pinball/style.css?v=0.10.8">
-  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.10.8">
-  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.10.8">
-  <link rel="stylesheet" href="/games/pinball/cabinet-v0108.css?v=0.10.8">
-  <script type="module" src="/games/pinball/game.js?v=0.10.8"></script>
+  <link rel="stylesheet" href="/games/pinball/style.css?v=0.11.0">
+  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.11.0">
+  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.11.0">
+  <link rel="stylesheet" href="/games/pinball/cabinet-v0108.css?v=0.11.0">
+  <link rel="stylesheet" href="/games/pinball/collection-v0110.css?v=0.11.0">
+  <script type="module" src="/games/pinball/game.js?v=0.11.0"></script>
 </head>
 <body>
   <div class="ambient glow-left"></div><div class="ambient glow-right"></div>
@@ -22,7 +23,7 @@
         <span class="brand-words">ARCADE<span class="dot">.</span></span>
       </a>
       <div class="header-actions">
-        <button class="shop-shortcut" id="giftBtn" type="button" aria-label="打开奖励卡商店">★ <strong id="cards">0</strong> <span>兑换</span></button>
+        <button class="shop-shortcut" id="giftBtn" type="button" aria-label="打开收藏册与兑换商店">★ <strong id="cards">0</strong> <span>兑换</span></button>
         <button class="icon-button" id="soundBtn" type="button" aria-label="开启音效" aria-pressed="false" title="开启音效">♩</button>
         <button class="icon-button" id="helpBtn" type="button" aria-label="查看规则" title="规则">?</button>
       </div>
@@ -130,7 +131,7 @@
         </div>
       </section>
     </main>
-    <div class="game-version" aria-label="游戏版本">v0.10.8</div>
+    <div class="game-version" aria-label="游戏版本">v0.11.0</div>
   </div>
 
   <dialog id="infoDialog" class="modal">
@@ -141,7 +142,7 @@
       <p><b>② 抽取奖励</b>：投入满 5 颗时随机确定本局倍率及红灯槽。2倍有5个中奖槽，4倍4个，6倍3个，8倍2个，10倍1个；共11个落珠槽。顶部倍率灯循环减速后揭晓本局结果，每局只抽一次。</p>
       <p><b>③ 发射钢珠</b>：在机台右侧下方按住金色拉杆向下拖动，拉得越远力度越大，松手后发射。也可按住空格键蓄力、松开发射。钢珠发射后不能再控制方向。同样的力度也有轻微的弹簧和金属钉碰撞误差，因此每次轨迹可能不同。</p>
       <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。中奖后机器依次进行槽位闪光、出珠、出票和完整结算，可跳过动画。中奖位置每局随机，钢珠实际运动轨迹决定落槽；亮灯数量不等于精确中奖概率。撞钉音效需要点击右上角 ♩ 开启，8×、10× 命中有专属灯光演出。</p>
-      <p><b>⑤ 奖励卡片</b>：每局中奖返还的弹珠每满 50 颗获得 1 张卡片（向下取整、不跨局累计），例如返还 150 颗获得 3 张卡片。卡片可兑换游戏内虚拟外观。</p>
+      <p><b>⑤ 奖励卡片</b>：每局中奖返还的弹珠每满 50 颗获得 1 张卡片（向下取整、不跨局累计），例如返还 150 颗获得 3 张卡片。卡片可在收藏册与兑换商店中解锁机台主题、钢珠皮肤和尾迹特效，均不影响中奖概率。</p>
       <p><b>⑥ 余额不足</b>：余额少于 5 颗且没有可用的本局投入时，可在一局结束后免费领取新一份体验弹珠。已经投入但尚未发射的弹珠可退回。</p>
       <p class="rule-warning">仅供单人娱乐。所有弹珠和卡片均为虚拟积分，没有现金价值，不提供真实奖品兑换。</p>
     </div>
@@ -150,10 +151,24 @@
 
   <dialog id="shopDialog" class="modal">
     <div class="dialog-top"><span>VIRTUAL GIFT VAULT</span><button type="button" class="close-btn" data-close="shopDialog" aria-label="关闭">×</button></div>
-    <h2>奖励卡兑换</h2>
-    <p class="shop-lead">目前拥有 <strong id="shopCards">0</strong> 张奖励卡。兑换后可永久解锁本浏览器中的灯光主题。</p>
-    <div class="gift-list" id="giftList"></div>
-    <p class="rule-warning">此处为游戏内虚拟礼物。实物奖品、跨设备账号与兑换系统不在首版实现范围内。</p>
+    <h2>奖励卡收藏与兑换</h2>
+    <p class="shop-lead">当前拥有 <strong id="shopCards">0</strong> 张奖励卡。兑换外观后永久解锁，可随时切换装备。</p>
+    <div class="collection-summary" aria-label="外观收藏进度">
+      <span>收藏进度</span><strong id="collectionProgress">0 / 9 已解锁</strong>
+      <div class="collection-progress-track"><div id="collectionBar"></div></div>
+    </div>
+    <div class="collection-views" role="group" aria-label="收藏册和兑换商店">
+      <button type="button" data-collection-view="album" aria-pressed="true" class="is-active">收藏册</button>
+      <button type="button" data-collection-view="shop" aria-pressed="false">兑换商店</button>
+    </div>
+    <div class="collection-filters" role="group" aria-label="外观类别">
+      <button type="button" class="is-active" data-collection-category="all" aria-pressed="true">全部</button>
+      <button type="button" data-collection-category="theme" aria-pressed="false">机台主题</button>
+      <button type="button" data-collection-category="marble" aria-pressed="false">钢珠皮肤</button>
+      <button type="button" data-collection-category="trail" aria-pressed="false">尾迹特效</button>
+    </div>
+    <div class="gift-list collection-list" id="giftList" aria-label="外观收藏和兑换列表"></div>
+    <p class="rule-warning">奖励卡仅为游戏内虚拟积分；外观不影响弹珠物理、中奖概率或实际奖励。收藏保存在本浏览器中。</p>
     <button class="outline-button full" id="resetBtn" type="button">清空存档并重新开始</button>
   </dialog>
 </body>
