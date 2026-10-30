@@ -519,7 +519,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.6/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.7/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -551,11 +551,11 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
-  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-physics.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.10.6"'),"Versioned import: "+name);
+  for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-physics.mjs","payout-feedback.mjs"]){
+    assert.ok(js.includes('"./'+name+'?v=0.10.7"'),"Versioned import: "+name);
   }
   for(const name of ["style.css","mobile.css","fullscreen.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.6'));
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.10.7'));
   }
 });
 
@@ -584,7 +584,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.10\.6/);
+  assert.match(html,/class="game-version"[^>]*>v0\.10\.7/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -767,4 +767,21 @@ test("v0.10.6 keeps fixed radius and renders spills outside the glass bowl",asyn
   assert.match(game,/createPayoutWorld\(w,h,total,tray\)/);
   assert.match(css,/\.payout-inventory\{[\s\S]*?z-index:2/);
   assert.match(css,/\.payout-collection-tray\{z-index:1;overflow:visible\}/);
+});
+
+test("v0.10.7 payout spill shelves align with physical edges and sound intensity",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  const code=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const physics=readFileSync(new URL("../public/payout-physics.mjs",import.meta.url),"utf8");
+  assert.match(html,/class="payout-spill-platform payout-spill-left"/);
+  assert.match(html,/class="payout-spill-platform payout-spill-right"/);
+  assert.match(css,/\.payout-collection-tray\{\s*left:14%;right:14%/);
+  assert.match(css,/\.payout-spill-platform\{[\s\S]*?bottom:1px;height:4px/);
+  assert.match(physics,/platformLandings:0,platformImpacts:0,beadImpacts:0,pendingImpact:null/);
+  assert.match(physics,/recordImpact\(world,"platform",before\)/);
+  assert.match(code,/payoutClink\(consumePayoutImpact\(world\)\)/);
+  assert.match(code,/PAYOUT_CLINK_GAP_MS/);
+  assert.match(code,/save=result.save;persist\(\);/);
 });

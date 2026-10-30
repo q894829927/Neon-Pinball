@@ -29,6 +29,8 @@ export function createPayoutWorld(width,height,reward,tray=null){
   return {
     width,height,reward,visible:Math.min(reward,MAX_SIMULATED),radius,
     tray:limits,balls:[],frames:0,contacts:0,wallHits:0,spilled:0,elapsed:0,
+    platformLandings:0,platformImpacts:0,beadImpacts:0,pendingImpact:null,
+    eventSequence:0,
     cellSize:2*radius+.12,
   };
 }
@@ -39,14 +41,30 @@ export function spawnPayoutBall(world){
     index,x:clamp((t.left+t.right)/2+(rand(index,1)-.5)*r*1.5,r,world.width-r),
     y:t.open?Math.max(r+.4,t.top-r*2.3):r+.4,
     vx:(rand(index,2)-.5)*64,vy:12+rand(index,3)*24,
-    radius:r,contacts:0,spilled:false,
+    radius:r,contacts:0,spilled:false,landedOnPlatform:false,
   };
   world.balls.push(ball);
   return ball;
 }
+// Only retain the strongest sound cue of a frame/batch. Physical collision
+// impulse is not changed by audio; a short bounded queue prevents sound spam.
+function recordImpact(world,kind,speed){
+  if(speed<18||!Number.isFinite(speed))return;
+  if(kind==="platform")world.platformImpacts++;
+  if(kind==="bead")world.beadImpacts++;
+  world.eventSequence++;
+  if(!world.pendingImpact||speed>world.pendingImpact.speed)
+    world.pendingImpact={kind,speed};
+}
+export function consumePayoutImpact(world){
+  const result=world.pendingImpact;
+  world.pendingImpact=null;
+  return result;
+}
 function bounceWall(ball,nx,ny,world,elasticity){
   const normal=ball.vx*nx+ball.vy*ny;
   if(normal<0){
+    recordImpact(world,"wall",-normal);
     ball.vx-=(1+elasticity)*normal*nx;
     ball.vy-=(1+elasticity)*normal*ny;
   }
@@ -69,7 +87,7 @@ function segmentContact(world,ball,x1,y1,x2,y2){
 }
 function boundaries(world,ball){
   if(ball.spilled)return;
-  const r=world.radius,t=world.tray,roomBottom=world.height-r-.2;
+  const r=world.radius,t=world.tray;
   if(!t.open){
     const lo=r+.3,hi=world.width-r-.3,top=r+.3,bottom=world.height-r-.3;
     if(ball.x<lo){ball.x=lo;if(ball.vx<0)ball.vx=-ball.vx*WALL_BOUNCE;world.wallHits++;}
@@ -77,21 +95,33 @@ function boundaries(world,ball){
     if(ball.y<top){ball.y=top;if(ball.vy<0)ball.vy=-ball.vy*.12;}
     if(ball.y>bottom){
       ball.y=bottom;
-      if(ball.vy>0){ball.vy=ball.vy>24?-ball.vy*.24:0;ball.vx*=.84;
-        ball.contacts++;world.contacts++;}
+      if(ball.vy>0){
+        recordImpact(world,"basin",ball.vy);
+        ball.vy=ball.vy>24?-ball.vy*.24:0;ball.vx*=.84;
+        ball.contacts++;world.contacts++;
+      }
     }
     return;
   }
   // Visible receiver top. Overflow travels sideways over the basin lip.
   if(ball.y<r+.2){ball.y=r+.2;if(ball.vy<0)ball.vy=-ball.vy*.08;}
-  // Basin has a floor but its upper rim is intentionally open.
+  // Basin: contained floor under the glass; outside the finite wall:
+  // left/right steel payout shelves catch beads that physically spill over.
+  // The shelves are real collision planes at the same height as their CSS tops.
   const inside=ball.x>=t.left+r*.2&&ball.x<=t.right-r*.2;
-  const floor=inside?t.bottom-r:roomBottom;
+  const platformFloor=world.height-5-r;
+  const floor=inside?t.bottom-r:platformFloor;
   if(ball.y>floor){
+    const before=ball.vy;
     ball.y=floor;
-    if(ball.vy>0){
-      ball.vy=ball.vy>24?-ball.vy*.23:0;
-      ball.vx*=.82;ball.contacts++;world.contacts++;
+    if(before>0){
+      if(inside)recordImpact(world,"basin",before);
+      else{
+        recordImpact(world,"platform",before);
+        if(!ball.landedOnPlatform){ball.landedOnPlatform=true;world.platformLandings++;}
+      }
+      ball.vy=before>24?-before*(inside?.23:.19):0;
+      ball.vx*=inside?.82:.79;ball.contacts++;world.contacts++;
     }
   }
   segmentContact(world,ball,t.left,t.top,t.left,t.bottom);
@@ -134,6 +164,7 @@ function solveContacts(world){
           b.x+=correction*nx;b.y+=correction*ny;
           const vn=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
           if(vn<0){
+            recordImpact(world,"bead",-vn);
             const impulse=-(1+RESTITUTION)*vn*.5;
             a.vx-=impulse*nx;a.vy-=impulse*ny;
             b.vx+=impulse*nx;b.vy+=impulse*ny;
@@ -193,7 +224,7 @@ export function finishPayoutWorld(world,settlingSteps=180){
 export function reflowPayoutWorld(world,width,height,tray=null){
   if(!Number.isFinite(width)||!Number.isFinite(height)||width<12||height<8)return world;
   const oldW=world.width,oldH=world.height;
-  const previous=world.tray,oldTrayWidth=previous.right-previous.left;
+  const previous=world.tray;
   const updated=normalizedTray(width,height,tray??(previous.open?{
     left:previous.left*width/oldW,
     right:previous.right*width/oldW,

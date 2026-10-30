@@ -113,6 +113,23 @@ const {chromium}=require("playwright");
       assert.equal(outletGeometry.inventoryExists,true);
       assert.ok(outletGeometry.canvasBox.width>=16&&outletGeometry.canvasBox.height>=10,
         "Marble canvas must remain visible even in tiny landscape cabinets");
+      const platformGeometry=await page.evaluate(()=>{
+        const receiver=document.getElementById("payoutReceiver").getBoundingClientRect();
+        const bowl=document.getElementById("payoutBasin").getBoundingClientRect();
+        const left=document.querySelector(".payout-spill-left").getBoundingClientRect();
+        const right=document.querySelector(".payout-spill-right").getBoundingClientRect();
+        return {receiver:receiver.toJSON(),bowl:bowl.toJSON(),
+          left:left.toJSON(),right:right.toJSON()};
+      });
+      assert.ok(platformGeometry.left.width>=3&&platformGeometry.right.width>=3,
+        "Both spill platforms must be visible at the receiver edges");
+      assert.ok(Math.abs(platformGeometry.left.right-platformGeometry.bowl.left)<4,
+        "Left steel shelf must touch the glass rim");
+      assert.ok(Math.abs(platformGeometry.right.left-platformGeometry.bowl.right)<4,
+        "Right steel shelf must touch the glass rim");
+      assert.ok(Math.abs(platformGeometry.left.top-(platformGeometry.receiver.bottom-5))<3,
+        "Actual platform collision height must match visible shelf");
+
       // Force both result formats at every viewport, including the 8x/10x
       // special banners. The button must have its own row, never cover digits.
       const summaryCheck=await page.evaluate(()=>{
@@ -179,7 +196,7 @@ const {chromium}=require("playwright");
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
           const {PAYOUT_RADIUS,createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
-            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.10.6");
+            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.10.7");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
           const receiver=document.getElementById("payoutReceiver").getBoundingClientRect();
           const bounds={left:tray.left-receiver.left,right:tray.right-receiver.left,
@@ -194,7 +211,8 @@ const {chromium}=require("playwright");
               unique.size>world.visible*.82&&world.contacts>0&&world.wallHits>=0,
             count:world.balls.length,before,contacts:world.contacts,
             radius:world.radius,radiusFixed:world.radius===PAYOUT_RADIUS,
-            overflow:payoutOverflow(world),spilled:world.spilled};
+            overflow:payoutOverflow(world),spilled:world.spilled,
+            platformLandings:world.platformLandings,beadImpacts:world.beadImpacts};
         });
         assert.equal(payoutLayout.ok,true,"500 earned credits must show 500 basin beads");
         assert.equal(payoutLayout.count,500);
@@ -202,9 +220,11 @@ const {chromium}=require("playwright");
         assert.equal(payoutLayout.radiusFixed,true,"Reward size must never shrink marble radius");
         assert.ok(payoutLayout.overflow>0,
           "Dense 500-marble payout must visibly overflow the glass lip");
+        assert.ok(payoutLayout.beadImpacts>0,
+          "Marble-marble physics must produce actual contact impulses");
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.10.6");
+            "/games/pinball/payout-tray.mjs?v=0.10.7");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
