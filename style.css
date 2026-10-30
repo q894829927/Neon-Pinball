@@ -595,3 +595,25 @@ body{
 .payout-receiver-name{z-index:5}
 .payout-marble-mouth{z-index:6}
 .payout-coin-track{pointer-events:none}
+
+/* v0.10.7 — physically catch spillover on two low steel shelves.
+   No height/width is added to the cabinet; the 4px top edge corresponds
+   to world.height-5 in the 120Hz payout collision engine. */
+.payout-collection-tray{
+  left:14%;right:14%;z-index:1;overflow:visible;
+  border-left-color:#b8cfdbcc;border-right-color:#b8cfdbcc;
+  border-top-color:#f5e2b8;
+}
+.payout-spill-platform{
+  position:absolute;z-index:1;bottom:1px;height:4px;
+  border-top:2px solid #e3c38d;border-bottom:1px solid #546476;
+  background:linear-gradient(180deg,#acb7b9,#42536a 60%,#20273b);
+  box-shadow:0 -2px 5px #97c4d540,0 1px 3px #050718b9;
+  pointer-events:none;
+}
+.payout-spill-left{left:1px;width:calc(14% - 1px);border-radius:4px 1px 0 3px}
+.payout-spill-right{right:1px;width:calc(14% - 1px);border-radius:1px 4px 3px 0}
+.payout-inventory{position:absolute;inset:0;z-index:2;pointer-events:none}
+@media(prefers-reduced-motion:reduce){
+  .payout-spill-platform{transition:none!important;animation:none!important}
+}
