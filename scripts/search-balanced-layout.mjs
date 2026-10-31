@@ -21,39 +21,34 @@ const cost=counts=>{
   const target=1/11;
   const tv=probs.reduce((v,p)=>v+Math.abs(p-target),0)/2;
   const max=Math.max(...probs),min=Math.min(...probs);
-  return +(tv*100 + (max-min)*48 + Math.max(0,max-.16)*110 +
+  return +(tv*100 + (max-min)*65 + Math.max(0,max-.16)*75 +
     Math.max(0,.055-min)*450).toFixed(4);
 };
 const point=(x,y,r)=>({x:+x.toFixed(1),y:+y.toFixed(1),r:+r.toFixed(1)});
 const okay=(p,pegs)=>p.x>=48&&p.x<=348&&p.y>=143&&p.y<=608&&pegs.every(b=>Math.hypot(b.x-p.x,b.y-p.y)>b.r+p.r+2);
 const seeds=[
-  [],
-  [{x:341.7,y:171.5,r:9.8},{x:346.5,y:594.8,r:6}],
-  [{x:298.4,y:170.9,r:8},{x:336.8,y:586.7,r:8.2}],
-  [{x:282.1,y:160.9,r:7.6},{x:327.6,y:574.1,r:8.2}],
-  [{x:341.7,y:171.5,r:9.8}],
-  [{x:341.7,y:171.5,r:9.8},{x:339,y:589,r:6.4}],
-  [{x:340,y:169,r:8},{x:345,y:599,r:6.5}],
+  [{x:344,y:160.6,r:9.4},{x:343.3,y:600.8,r:8.2}],
+  [{x:344,y:160.6,r:9.4},{x:343.3,y:600.8,r:8.2},{x:67,y:601,r:6.2}],
+  [{x:344,y:160.6,r:9.4},{x:343.3,y:600.8,r:8.2},{x:86,y:594,r:6.2}],
+  [{x:344,y:160.6,r:9.4},{x:343.3,y:600.8,r:8.2},{x:106,y:601,r:6.2}],
+  [{x:344,y:160.6,r:9.4},{x:343.3,y:600.8,r:8.2},{x:126,y:600,r:5.8}],
 ];
 function randomCandidate(){
   for(let attempt=0;attempt<100;attempt++){
     const pins=[];
-    // One upper right distributor must intercept entry geometry, not alter
-    // the random chosen winning lamps.
-    const upper=point(rand(309,347),rand(148,177),rand(5.5,11));
-    if(okay(upper,[...aBase,...pins]))pins.push(upper);
-    // Small lower wall pegs physically deflect right-rail accumulation.
-    if(searchRng()<.93){
-      const lower=point(rand(314,349),rand(584,604),rand(5.2,9));
-      if(okay(lower,[...aBase,...pins]))pins.push(lower);
+    const top=point(rand(338,348),rand(154,166.5),rand(8,11));
+    if(okay(top,[...aBase,...pins]))pins.push(top);
+    const right=point(rand(337,348),rand(593,605),rand(6,10));
+    if(okay(right,[...aBase,...pins]))pins.push(right);
+    // Independent lightweight left bumper to prevent newly created first-slot
+    // pileup; unlike a magnet, it acts only if there is an actual collision.
+    if(searchRng()<.7){
+      const left=point(rand(54,155),rand(585,607),rand(5,9));
+      if(okay(left,[...aBase,...pins]))pins.push(left);
     }
-    if(searchRng()<.38){
-      const center=point(rand(155,310),rand(580,602),rand(5.2,8.5));
-      if(okay(center,[...aBase,...pins]))pins.push(center);
-    }
-    if(pins.length>=1)return pins;
+    if(pins.length>=2)return pins;
   }
-  return [point(338,594,7)];
+  return seeds[0];
 }
 function run(pins,shots,offset,timeout=3700){
   const layout={pegs:[...classic.pegs,...pins.map((p,i)=>({...p,row:-1,col:i}))],
@@ -78,11 +73,11 @@ function run(pins,shots,offset,timeout=3700){
     min:Math.min(...counts)/shots,meanImpacts:+(impacts/shots).toFixed(2)};
 }
 const candidates=[];
-for(let i=0;i<155;i++){
+for(let i=0;i<135;i++){
   const pins=i<seeds.length?seeds[i]:randomCandidate();
-  const res=run(pins,180,0);
+  const res=run(pins,155,0);
   candidates.push({pins,...res});
-  if((i+1)%31===0)console.log("SEARCH_COARSE "+(i+1)+"/155 best="+Math.min(...candidates.map(x=>x.score)));
+  if((i+1)%27===0)console.log("SEARCH_COARSE "+(i+1)+"/135 best="+Math.min(...candidates.map(x=>x.score)));
 }
 candidates.sort((a,b)=>a.score-b.score);
 const refined=[];
