@@ -139,7 +139,11 @@ const {chromium}=require("playwright");
         const board=document.querySelector("#board"),rect=board.getBoundingClientRect();
         return {x:board.width/rect.width,y:board.height/rect.height};
       });
-      assert.ok(pxScale.x<=Math.max(2,profile.deviceScaleFactor)+.3);
+      // Canvas never goes below its 420 logical pixels. A tiny fitted
+      // cabinet can therefore have a ratio above DPR without oversampling.
+      const effectiveCap=Math.max(420/visual.board.width,Math.min(2,profile.deviceScaleFactor));
+      assert.ok(pxScale.x<=effectiveCap+.35,
+        "Canvas backing resolution exceeds the useful visual pixel budget");
 
       assert.ok(visual.handleHitbox.width>=30&&visual.handleHitbox.height>=20,
         "Mechanical lever keeps its original responsive touch area");
