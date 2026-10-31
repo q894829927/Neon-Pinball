@@ -38,6 +38,7 @@ jobs:
           node --check public/payout-physics.mjs
           node --check public/payout-feedback.mjs
           node --check public/cosmetics.mjs
+          node --check public/render-budget.mjs
           node --check scripts/payout-physics-benchmark.mjs
           node --test tests/*.test.mjs
       - name: Stress test 500/850 actual physical marbles
@@ -78,6 +79,8 @@ jobs:
           test -s dist/cabinet-v0108.css
           test -s dist/cosmetics.mjs
           test -s dist/collection-v0110.css
+          test -s dist/performance-v0111.css
+          test -s dist/render-budget.mjs
           grep -Fq '/games/pinball/' dist/index.html
           ! grep -q 'VITE_SERVER_URL' dist/game.js
           python3 -m http.server 8765 --directory dist --bind 127.0.0.1 >/tmp/pinball-http.log 2>&1 &
@@ -94,7 +97,7 @@ jobs:
                   sleep(.2)
           else:
               raise SystemExit("Static preview failed")
-          for path in ("game.js","rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-tray.mjs","payout-basin.mjs","payout-pile.mjs","payout-physics.mjs","payout-feedback.mjs","cosmetics.mjs","style.css","mobile.css","fullscreen.css","cabinet-v0108.css","collection-v0110.css"):
+          for path in ("game.js","rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-tray.mjs","payout-basin.mjs","payout-pile.mjs","payout-physics.mjs","payout-feedback.mjs","cosmetics.mjs","render-budget.mjs","style.css","mobile.css","fullscreen.css","cabinet-v0108.css","collection-v0110.css","performance-v0111.css"):
               with urlopen("http://127.0.0.1:8765/"+path) as r:
                   assert r.status==200
           PY

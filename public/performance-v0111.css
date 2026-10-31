@@ -1,0 +1,56 @@
+/* v0.11.1: Prevent multiplier numbers and slot counts sharing a baseline.
+   Do not expand cabinet: fullscreen.css owns the available vertical space. */
+.machine-lamps .mult-lamp{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-sizing:border-box!important;
+  gap:0!important;
+  padding:2px 2px 4px!important;
+  line-height:1!important;
+  overflow:hidden!important;
+}
+.machine-lamps .mult-lamp b,
+.machine-lamps .mult-lamp small{
+  display:block!important;
+  position:static!important;
+  flex:0 0 auto!important;
+  padding:0!important;
+  margin:0!important;
+  transform:none!important;
+  text-align:center!important;
+  max-width:100%!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+}
+.machine-lamps .mult-lamp b{
+  font-size:clamp(12px,1.35vw,18px)!important;
+  line-height:1.02!important;
+  letter-spacing:-.45px!important;
+}
+.machine-lamps .mult-lamp small{
+  font-size:clamp(8px,.85vw,10px)!important;
+  line-height:1.12!important;
+  letter-spacing:0!important;
+  text-shadow:none!important;
+}
+.machine-lamps .mult-lamp::after{
+  bottom:1px!important;height:1px!important;opacity:.36;
+}
+/* Keep the original 29px/26px mobile lamp height, including text. */
+@media(max-width:820px) and (orientation:portrait){
+  .machine-lamps .mult-lamp{padding:1px 1px 3px!important}
+  .machine-lamps .mult-lamp b{font-size:clamp(12px,3.5vw,16px)!important}
+  .machine-lamps .mult-lamp small{font-size:clamp(7px,2vw,9px)!important}
+}
+@media(max-width:370px) and (orientation:portrait){
+  .machine-lamps .mult-lamp{padding:1px 1px 2px!important}
+  .machine-lamps .mult-lamp b{font-size:12px!important}
+  .machine-lamps .mult-lamp small{font-size:7px!important}
+}
+@media(max-height:620px) and (orientation:landscape){
+  .machine-lamps .mult-lamp{padding:1px 1px 2px!important}
+  .machine-lamps .mult-lamp b{font-size:12px!important}
+  .machine-lamps .mult-lamp small{font-size:7px!important}
+}
