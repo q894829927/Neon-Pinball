@@ -2,18 +2,18 @@ import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, CATALOG, ALL_COLLECTIBLES,
   collectionProgress, STORAGE_KEY, freshSave, restoreSave,
   depositMarbles, refundDeposit, canLaunch, commitShot, settleFunded,
   redeem, selectCosmetic
-} from "./rules.mjs?v=0.11.1";
-import {marbleLook,trailLook} from "./cosmetics.mjs?v=0.11.1";
-import {renderBudget,shouldDrawFrame} from "./render-budget.mjs?v=0.11.1";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.11.1";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.11.1";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.11.1";
-import {createPegLayout} from "./board-layout.mjs?v=0.11.1";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.11.1";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.11.1";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.11.1";
-import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.11.1";
-import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.11.1";
+} from "./rules.mjs?v=0.11.2";
+import {marbleLook,trailLook} from "./cosmetics.mjs?v=0.11.2";
+import {renderBudget,shouldDrawFrame} from "./render-budget.mjs?v=0.11.2";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.11.2";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.11.2";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.11.2";
+import {createPegLayout,getBoardLayout} from "./board-layout.mjs?v=0.11.2";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.11.2";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.11.2";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.11.2";
+import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.11.2";
+import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.11.2";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -56,10 +56,12 @@ const palette={
   violet:{gold:"#edbcff",red:"#ff8fbf",sky:"#b6a1ff",floor:"#2e2046"}
 };
 // Bumpers replace original peg cells in the SAME authoritative layout.
-const {pegs,bumpers}=createPegLayout(RIGHT);
+let pegs=[],bumpers=[];
 let save;
 try{save=restoreSave(JSON.parse(localStorage.getItem(STORAGE_KEY)||"null"));}
 catch{save=freshSave();}
+const startingLayout=createPegLayout(RIGHT,save.boardLayout);
+pegs=startingLayout.pegs;bumpers=startingLayout.bumpers;
 let round=save.pendingRound,stake=save.pendingStake,phase="ready";
 let revealState=round?"revealed":"hidden";
 let lampRoll={steps:[],step:-1,nextAt:0};
@@ -276,6 +278,17 @@ function refresh(){
   document.body.dataset.theme=save.theme;
   document.body.dataset.marbleSkin=save.marbleSkin;
   document.body.dataset.trailEffect=save.trailEffect;
+  const selectedLayout=getBoardLayout(save.boardLayout);
+  $("layoutBtn").title="钉阵布局："+selectedLayout.name;
+  $("layoutBtn").setAttribute("aria-label","选择钉阵布局，当前："+selectedLayout.name);
+  $("layoutBtn").disabled=phase!=="ready"||charging;
+  $("layoutActiveLabel").textContent="当前："+selectedLayout.name;
+  document.querySelectorAll("[data-board-layout]").forEach(btn=>{
+    const current=btn.dataset.boardLayout===save.boardLayout;
+    btn.classList.toggle("is-active",current);
+    btn.setAttribute("aria-pressed",String(current));
+    btn.disabled=phase!=="ready"||charging;
+  });
   document.querySelectorAll("[data-add]").forEach(btn=>{
     const n=Number(btn.dataset.add);
     btn.disabled=phase!=="ready"||revealState==="rolling"||charging||save.marbles<n||stake+n>MAX_STAKE;
@@ -1131,6 +1144,20 @@ $("soundBtn").addEventListener("click",event=>{
   if(soundEnabled)beep(620,.1);
 });
 $("helpBtn").addEventListener("click",()=>el.info.showModal());
+$("layoutBtn").addEventListener("click",()=>{
+  refresh();$("layoutDialog").showModal();
+});
+document.querySelectorAll("[data-board-layout]").forEach(btn=>btn.addEventListener("click",()=>{
+  if(phase!=="ready"||charging)return;
+  const id=btn.dataset.boardLayout;
+  if(id===save.boardLayout)return;
+  const layout=createPegLayout(RIGHT,id);
+  pegs=layout.pegs;bumpers=layout.bumpers;
+  save={...save,boardLayout:id};
+  staticBoardCache=null;
+  persist();refresh();
+  beep(570,.09,"triangle",.028);
+}));
 $("giftBtn").addEventListener("click",()=>{renderGifts();el.shop.showModal();});
 document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("click",()=>{
   $(btn.dataset.close).close();
@@ -1138,6 +1165,9 @@ document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("cli
 $("resetBtn").addEventListener("click",()=>{
   if(!confirm("确定清空弹珠、奖励卡、收藏品和全部已解锁外观吗？此操作无法撤销。"))return;
   save=freshSave();round=null;stake=0;phase="ready";revealState="hidden";
+  const originalLayout=createPegLayout(RIGHT,save.boardLayout);
+  pegs=originalLayout.pegs;bumpers=originalLayout.bumpers;
+  staticBoardCache=null;
   lampRoll={steps:[],step:-1,nextAt:0};
   ball=null;trail=[];impactFlashes=[];slotPulse=null;charge=0;charging=false;chargeMode=null;dragPointerId=null;
   payoutFx=null;clearDispensers();el.resultPanel.hidden=true;el.next.hidden=true;
