@@ -46,6 +46,7 @@ export function collectionProgress(save){
 export function freshSave() {
   return { marbles: STARTING_MARBLES, cards: 0, rounds: 0, wins: 0, best: 0, earned: 0,
     redeemed: [], theme: "classic", marbleSkin:"steel", trailEffect:"standard",
+    boardLayout:"classic",
     pendingStake: 0, pendingRound: null };
 }
 
@@ -69,6 +70,8 @@ export function restoreSave(candidate) {
   const trailEffect=candidate.trailEffect==="standard"||
     (TRAIL_EFFECTS.some(g=>g.id===candidate.trailEffect)&&redeemed.includes(candidate.trailEffect))
       ? candidate.trailEffect : "standard";
+  const boardLayout=["classic","mirror","dense","wave"].includes(candidate.boardLayout)
+    ?candidate.boardLayout:"classic";
   const pendingStake = int(candidate.pendingStake, MAX_STAKE);
   const pendingRound = pendingStake >= MIN_STAKE
     ? normalizePendingRound(candidate.pendingRound) : null;
@@ -76,7 +79,7 @@ export function restoreSave(candidate) {
     marbles: int(candidate.marbles), cards: int(candidate.cards),
     rounds: int(candidate.rounds), wins: int(candidate.wins),
     best: int(candidate.best), earned: int(candidate.earned),
-    redeemed, theme, marbleSkin, trailEffect,
+    redeemed, theme, marbleSkin, trailEffect, boardLayout,
     // A partial deposit stays funded across a refresh. No multiplier before 5.
     pendingStake: pendingRound || pendingStake < MIN_STAKE ? pendingStake : 0,
     pendingRound,

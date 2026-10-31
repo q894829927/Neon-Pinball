@@ -504,7 +504,7 @@ test("drawing and collisions use the identical computed grid, without old detach
   const {readFileSync}=await import("node:fs");
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const source=readFileSync(new URL("../public/board-layout.mjs",import.meta.url),"utf8");
-  assert.match(game,/const \{pegs,bumpers\}=createPegLayout\(RIGHT\)/);
+  assert.match(game,/const startingLayout=createPegLayout\(RIGHT,save\.boardLayout\)/);
   assert.match(game,/stepPhysicalBall\(ball,dt,\{pegs,bumpers\}\)/);
   assert.match(game,/import \{PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall\}/);
   assert.match(game,/for\(const peg of pegs\)/);
@@ -520,7 +520,7 @@ test("fullscreen layout removes redundant panels, slogan and page footer without
   const js=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const css=readFileSync(new URL("../public/fullscreen.css",import.meta.url),"utf8");
   assert.match(html,/\/games\/pinball\/fullscreen\.css/);
-  assert.match(html,/class="game-version"[^>]*>v0\.11\.1/);
+  assert.match(html,/class="game-version"[^>]*>v0\.11\.2/);
   for(const text of [
     "星运<span>弹珠局","蓄力发射，穿越钉阵，让一颗钢珠决定今天的好运",
     "纯虚拟游戏 · 无现金兑换 · 存档仅在本机",
@@ -553,10 +553,10 @@ test("desktop software-backed Canvas and cache-busted browser modules",async()=>
   assert.match(js,/willReadFrequently:desktopPointer/);
   assert.match(js,/hover: hover/);
   for(const name of ["rules.mjs","plunger.mjs","physics-variation.mjs","roulette.mjs","board-layout.mjs","physics-engine.mjs","arcade-feedback.mjs","payout-ceremony.mjs","payout-physics.mjs","payout-feedback.mjs","cosmetics.mjs","render-budget.mjs"]){
-    assert.ok(js.includes('"./'+name+'?v=0.11.1"'),"Versioned import: "+name);
+    assert.ok(js.includes('"./'+name+'?v=0.11.2"'),"Versioned import: "+name);
   }
-  for(const name of ["style.css","mobile.css","fullscreen.css","cabinet-v0108.css","collection-v0110.css","performance-v0111.css","game.js"]){
-    assert.ok(html.includes('/games/pinball/'+name+'?v=0.11.1'));
+  for(const name of ["style.css","mobile.css","fullscreen.css","cabinet-v0108.css","collection-v0110.css","performance-v0111.css","layout-picker-v0112.css","game.js"]){
+    assert.ok(html.includes('/games/pinball/'+name+'?v=0.11.2'));
   }
 });
 
@@ -585,7 +585,7 @@ test("reverted proportional single-screen layout and Safari double-tap guard",as
   assert.match(js,/event\.preventDefault\(\);lastGameTapAt=0/);
   assert.match(js,/\{passive:false\}/);
   assert.match(js,/document\.addEventListener\("dblclick",event=>/);
-  assert.match(html,/class="game-version"[^>]*>v0\.11\.1/);
+  assert.match(html,/class="game-version"[^>]*>v0\.11\.2/);
 });
 
 test("v0.9 collision FX and jackpot cues remain presentation-only",async()=>{
@@ -793,8 +793,8 @@ test("v0.10.8 unifies chrome and glass without changing the 420×710 board or pa
   const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
   const design=readFileSync(new URL("../public/cabinet-v0108.css",import.meta.url),"utf8");
   const rules=readFileSync(new URL("../public/rules.mjs",import.meta.url),"utf8");
-  const i=html.indexOf('fullscreen.css?v=0.11.1');
-  const j=html.indexOf('cabinet-v0108.css?v=0.11.1');
+  const i=html.indexOf('fullscreen.css?v=0.11.2');
+  const j=html.indexOf('cabinet-v0108.css?v=0.11.2');
   assert.ok(i>=0&&j>i,"Visual overrides must load after viewport-fit rules");
   assert.match(html,/width="420" height="710"/);
   assert.match(html,/data-mult-lamp="2"/);
@@ -922,4 +922,30 @@ test("v0.11.1 static board cache, mobile budgets and payout read cache preserve 
   assert.match(game,/shouldDrawFrame\(now,lastBoardDraw,interval,charging\)/);
   assert.match(game,/while\(accumulator>=STEP&&steps<14\)/);
   assert.doesNotMatch(game,/stepPhysicalBall\(ball,dt[^)]*renderBudget/);
+});
+
+test("v0.11.2 selectable peg arrangement is saved, restored, and restricted during a shot",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const game=readFileSync(new URL("../public/game.js",import.meta.url),"utf8");
+  const rules=readFileSync(new URL("../public/rules.mjs",import.meta.url),"utf8");
+  const css=readFileSync(new URL("../public/layout-picker-v0112.css",import.meta.url),"utf8");
+  for(const name of ["classic","mirror","dense","wave"])
+    assert.match(html,new RegExp('data-board-layout="'+name+'"'));
+  assert.match(html,/id="layoutDialog"/);
+  assert.match(html,/id="layoutBtn"/);
+  assert.match(game,/createPegLayout\(RIGHT,save\.boardLayout\)/);
+  assert.match(game,/pegs=layout.pegs;bumpers=layout.bumpers/);
+  assert.match(game,/staticBoardCache=null;\s*persist\(\);refresh\(\)/);
+  assert.match(game,/if\(phase!=="ready"\|\|charging\)return/);
+  assert.match(game,/stepPhysicalBall\(ball,dt,\{pegs,bumpers\}\)/);
+  assert.match(rules,/boardLayout:"classic"/);
+  assert.match(css,/\.board-layout-options/);
+  const old=restoreSave({marbles:500,cards:3});
+  assert.equal(old.boardLayout,"classic");
+  const selected=restoreSave({...old,boardLayout:"wave"});
+  assert.equal(selected.boardLayout,"wave");
+  assert.equal(restoreSave({...old,boardLayout:"forged"}).boardLayout,"classic");
+  assert.equal(selected.marbles,500);
+  assert.equal(selected.cards,3);
 });
