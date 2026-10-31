@@ -70,7 +70,7 @@ export function restoreSave(candidate) {
   const trailEffect=candidate.trailEffect==="standard"||
     (TRAIL_EFFECTS.some(g=>g.id===candidate.trailEffect)&&redeemed.includes(candidate.trailEffect))
       ? candidate.trailEffect : "standard";
-  const boardLayout=["classic","mirror","dense","wave"].includes(candidate.boardLayout)
+  const boardLayout=["classic","mirror","dense","wave","balanced"].includes(candidate.boardLayout)
     ?candidate.boardLayout:"classic";
   const pendingStake = int(candidate.pendingStake, MAX_STAKE);
   const pendingRound = pendingStake >= MIN_STAKE

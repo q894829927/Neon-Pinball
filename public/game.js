@@ -2,18 +2,18 @@ import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, CATALOG, ALL_COLLECTIBLES,
   collectionProgress, STORAGE_KEY, freshSave, restoreSave,
   depositMarbles, refundDeposit, canLaunch, commitShot, settleFunded,
   redeem, selectCosmetic
-} from "./rules.mjs?v=0.11.2";
-import {marbleLook,trailLook} from "./cosmetics.mjs?v=0.11.2";
-import {renderBudget,shouldDrawFrame} from "./render-budget.mjs?v=0.11.2";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.11.2";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.11.2";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.11.2";
-import {createPegLayout,getBoardLayout} from "./board-layout.mjs?v=0.11.2";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.11.2";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.11.2";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.11.2";
-import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.11.2";
-import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.11.2";
+} from "./rules.mjs?v=0.11.3";
+import {marbleLook,trailLook} from "./cosmetics.mjs?v=0.11.3";
+import {renderBudget,shouldDrawFrame} from "./render-budget.mjs?v=0.11.3";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.11.3";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.11.3";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.11.3";
+import {createPegLayout,getBoardLayout} from "./board-layout.mjs?v=0.11.3";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.11.3";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.11.3";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.11.3";
+import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.11.3";
+import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.11.3";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;

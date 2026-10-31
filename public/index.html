@@ -7,14 +7,14 @@
   <meta name="theme-color" content="#0b0c1d">
   <meta name="description" content="单人街机倍率弹珠机">
   <title>星运弹珠局 · Neon Pinball</title>
-  <link rel="stylesheet" href="/games/pinball/style.css?v=0.11.2">
-  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.11.2">
-  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.11.2">
-  <link rel="stylesheet" href="/games/pinball/cabinet-v0108.css?v=0.11.2">
-  <link rel="stylesheet" href="/games/pinball/collection-v0110.css?v=0.11.2">
-  <link rel="stylesheet" href="/games/pinball/performance-v0111.css?v=0.11.2">
-  <link rel="stylesheet" href="/games/pinball/layout-picker-v0112.css?v=0.11.2">
-  <script type="module" src="/games/pinball/game.js?v=0.11.2"></script>
+  <link rel="stylesheet" href="/games/pinball/style.css?v=0.11.3">
+  <link rel="stylesheet" href="/games/pinball/mobile.css?v=0.11.3">
+  <link rel="stylesheet" href="/games/pinball/fullscreen.css?v=0.11.3">
+  <link rel="stylesheet" href="/games/pinball/cabinet-v0108.css?v=0.11.3">
+  <link rel="stylesheet" href="/games/pinball/collection-v0110.css?v=0.11.3">
+  <link rel="stylesheet" href="/games/pinball/performance-v0111.css?v=0.11.3">
+  <link rel="stylesheet" href="/games/pinball/layout-picker-v0112.css?v=0.11.3">
+  <script type="module" src="/games/pinball/game.js?v=0.11.3"></script>
 </head>
 <body>
   <div class="ambient glow-left"></div><div class="ambient glow-right"></div>
@@ -134,7 +134,7 @@
         </div>
       </section>
     </main>
-    <div class="game-version" aria-label="游戏版本">v0.11.2</div>
+    <div class="game-version" aria-label="游戏版本">v0.11.3</div>
   </div>
 
   <dialog id="layoutDialog" class="modal board-layout-dialog">
@@ -146,6 +146,7 @@
       <button type="button" data-board-layout="mirror" aria-pressed="false"><strong>反向错列</strong><span>10×8</span><small>交替行向反方向偏移</small></button>
       <button type="button" data-board-layout="dense" aria-pressed="false"><strong>密集钉阵</strong><span>12×8</span><small>行距缩小，增加障碍数量</small></button>
       <button type="button" data-board-layout="wave" aria-pressed="false"><strong>波浪钉阵</strong><span>10×8</span><small>多行钉子形成波浪走向</small></button>
+      <button type="button" data-board-layout="balanced" aria-pressed="false"><strong>均衡导流</strong><span>实验优化</span><small>利用真实导流钉减少两端偏斜</small></button>
     </div>
     <p class="layout-active-label" id="layoutActiveLabel" role="status">当前：经典错列</p>
     <p class="rule-warning">选择只影响真实弹珠轨迹，不影响每局随机亮灯或倍率的抽取。概率测试结果反映实验设置下的落点分布，并不保证单局结果。</p>
@@ -161,7 +162,7 @@
       <p><b>③ 发射钢珠</b>：在机台右侧下方按住金色拉杆向下拖动，拉得越远力度越大，松手后发射。也可按住空格键蓄力、松开发射。钢珠发射后不能再控制方向。同样的力度也有轻微的弹簧和金属钉碰撞误差，因此每次轨迹可能不同。</p>
       <p><b>④ 计算得分</b>：落入红灯槽奖励「投入 × 倍率」，未中奖投入不返还，每颗钢珠只结算一次。中奖后机器依次进行槽位闪光、出珠、出票和完整结算，可跳过动画。中奖位置每局随机，钢珠实际运动轨迹决定落槽；亮灯数量不等于精确中奖概率。撞钉音效需要点击右上角 ♩ 开启，8×、10× 命中有专属灯光演出。</p>
       <p><b>⑤ 奖励卡片</b>：每局中奖返还的弹珠每满 50 颗获得 1 张卡片（向下取整、不跨局累计），例如返还 150 颗获得 3 张卡片。卡片可在收藏册与兑换商店中解锁机台主题、钢珠皮肤和尾迹特效，均不影响中奖概率。</p>
-      <p><b>⑥ 钉阵布局</b>：点击顶部 ▦ 图标，可在经典错列、反向错列、密集钉阵、波浪钉阵中选择。切换后使用所选布局进行真实物理碰撞，发射过程中不能切换。钉阵布局影响落槽概率，但不改变倍率和中奖红灯抽取规则。</p>
+      <p><b>⑥ 钉阵布局</b>：点击顶部 ▦ 图标，可在经典错列、反向错列、密集钉阵、波浪钉阵、均衡导流中选择。切换后使用所选布局进行真实物理碰撞，发射过程中不能切换。钉阵布局影响落槽概率，但不改变倍率和中奖红灯抽取规则。</p>
       <p><b>⑦ 余额不足</b>：余额少于 5 颗且没有可用的本局投入时，可在一局结束后免费领取新一份体验弹珠。已经投入但尚未发射的弹珠可退回。</p>
       <p class="rule-warning">仅供单人娱乐。所有弹珠和卡片均为虚拟积分，没有现金价值，不提供真实奖品兑换。</p>
     </div>

@@ -20,9 +20,9 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 5
       matrix:
-        layout: [classic, mirror, dense, wave]
+        layout: [classic, mirror, dense, wave, balanced]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,15 +60,19 @@ jobs:
           import json,os,pathlib,csv
           folder=pathlib.Path("layouts")
           paths=sorted(folder.glob("*.json"))
-          ids=["classic","mirror","dense","wave"]
+          ids=["classic","mirror","dense","wave","balanced"]
           data={p.stem:json.loads(p.read_text()) for p in paths}
           if set(data)!=set(ids):
               raise SystemExit("Missing layout results: "+str(set(ids)-set(data)))
+          if data["balanced"]["invalid"] or data["balanced"]["timeouts"]:
+              raise SystemExit("Balanced geometry has physically unsettled shots")
+          if data["balanced"]["totalVariationFromUniformPct"]>=data["classic"]["totalVariationFromUniformPct"]:
+              raise SystemExit("Balanced geometry is no more uniform than original on this benchmark")
           result=["# 钉阵布局落点分布对比","",
-            "基于正式 180Hz 物理引擎，4 种布局各 3000 次随机发射；使用相同种子和均匀覆盖的 20 档发射力度。","",
+            "基于正式 180Hz 物理引擎，5 种布局各 3000 次随机发射；使用相同种子和均匀覆盖的 20 档发射力度。","",
             "下表为观察频率，不是修改后的中奖赔率。","",
-            "| 指标 | 经典错列 | 反向错列 | 密集钉阵 | 波浪钉阵 |",
-            "|---|---:|---:|---:|---:|"]
+            "| 指标 | 经典错列 | 反向错列 | 密集钉阵 | 波浪钉阵 | 均衡导流 |",
+            "|---|---:|---:|---:|---:|---:|"]
           def row(label,key,suffix=""):
               return "| "+label+" | "+" | ".join(str(data[i][key])+suffix for i in ids)+" |"
           result+=[row("有效落槽次数","settled"),row("异常发射","invalid"),
