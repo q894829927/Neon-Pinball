@@ -2,17 +2,18 @@ import { MIN_STAKE, MAX_STAKE, SLOT_COUNT, CATALOG, ALL_COLLECTIBLES,
   collectionProgress, STORAGE_KEY, freshSave, restoreSave,
   depositMarbles, refundDeposit, canLaunch, commitShot, settleFunded,
   redeem, selectCosmetic
-} from "./rules.mjs?v=0.11.0";
-import {marbleLook,trailLook} from "./cosmetics.mjs?v=0.11.0";
-import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.11.0";
-import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.11.0";
-import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.11.0";
-import {createPegLayout} from "./board-layout.mjs?v=0.11.0";
-import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.11.0";
-import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.11.0";
-import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.11.0";
-import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.11.0";
-import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.11.0";
+} from "./rules.mjs?v=0.11.1";
+import {marbleLook,trailLook} from "./cosmetics.mjs?v=0.11.1";
+import {renderBudget,shouldDrawFrame} from "./render-budget.mjs?v=0.11.1";
+import {PLUNGER, boardPoint, isPlungerHit, pullStrength, canFire, firingVelocity} from "./plunger.mjs?v=0.11.1";
+import {randomLaunch, varyLaunchVelocity} from "./physics-variation.mjs?v=0.11.1";
+import {buildLampSequence, lampStepDelay, displayedMultiplier, lampVisualIndex} from "./roulette.mjs?v=0.11.1";
+import {createPegLayout} from "./board-layout.mjs?v=0.11.1";
+import {PHYSICS,RAIL_POINTS,createPhysicalBall,stepPhysicalBall} from "./physics-engine.mjs?v=0.11.1";
+import {FEEDBACK,metalImpactProfile,jackpotTier,slotPulseStrength,trailOpacity} from "./arcade-feedback.mjs?v=0.11.1";
+import {payoutPlan,payoutAct,payoutProgress} from "./payout-ceremony.mjs?v=0.11.1";
+import {createPayoutWorld,stepPayoutWorld,finishPayoutWorld,reflowPayoutWorld,consumePayoutImpact} from "./payout-physics.mjs?v=0.11.1";
+import {PAYOUT_CLINK_GAP_MS,payoutImpactProfile} from "./payout-feedback.mjs?v=0.11.1";
 
 const W=420,H=710,LEFT=25,RIGHT=368,LANE=393,TOP=126;
 const SLOT_LEFT=28,SLOT_RIGHT=365,SLOT_TOP=619,SLOT_BOTTOM=681;
@@ -71,6 +72,11 @@ let payoutFx=null; // The real reward is committed before the ceremony begins.
 let payoutDisplayState=null; // Stable real-physics state throughout payout.
 let lastPayoutClinkAt=-Infinity;
 let collectionView="album",collectionCategory="all";
+const compactScreen=window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
+let renderQuality=renderBudget(compactScreen,false);
+let lowQualityUntil=0,slowFrameCount=0,frameSamples=0,lastBoardDraw=0;
+let staticBoardCache=null; // regenerated only for theme / effective pixel scale
+let payoutGeometry=null;
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(save));}catch{}}
 function beep(f=520,d=.08,type="sine",volume=.05,delay=0){
   if(!soundEnabled)return;
@@ -151,7 +157,7 @@ function impactVisuals(impacts){
   if(hit.speed>90)screenShake=Math.max(screenShake,Math.min(2.0,hit.speed/320));
   for(const impact of impacts){
     if(impact.speed<65)continue;
-    if(impactFlashes.length<FEEDBACK.maxImpactFlashes)
+    if(impactFlashes.length<renderQuality.flashes)
       impactFlashes.push({x:impact.x,y:impact.y,life:impact.bumper?.34:.20,
         total:impact.bumper?.34:.20,force:Math.min(1,impact.speed/950),bumper:impact.bumper});
     if(impact.bumper&&impact.speed>70)
@@ -337,7 +343,7 @@ function releaseCharge(){
 }
 function burst(x,y,color,n=8){
   if(reduceMotion)return;
-  for(let k=0;k<Math.min(n,FEEDBACK.maxParticles-particles.length);k++){
+  for(let k=0;k<Math.min(n,renderQuality.particles-particles.length);k++){
     const a=Math.random()*Math.PI*2,s=40+Math.random()*180;
     particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
       life:.35+Math.random()*.35,color});
@@ -351,7 +357,7 @@ function advance(dt){
     if(state.impacts.length)impactVisuals(state.impacts);
     if(!reduceMotion){
       trail.push({x:ball.x,y:ball.y,speed:Math.hypot(ball.vx,ball.vy)});
-      if(trail.length>FEEDBACK.maxTrailPoints)trail.shift();
+      if(trail.length>renderQuality.trailPoints)trail.shift();
     }
     if(state.settled){beep(450,.10,"triangle",.045);finishShot(state.slot);}
   }
@@ -369,12 +375,16 @@ function advance(dt){
 function paintBasinMarbles(count,total,instant=false){
   // Render into the full payout receiver, not a canvas clipped by the basin.
   // A fixed-size bead can rise over the glass rim or spill sideways.
-  const canvas=el.payoutInventory,receiver=el.payoutReceiver.getBoundingClientRect(),
-    basin=el.payoutBasin.getBoundingClientRect();
-  const w=receiver.width,h=receiver.height;
+  const canvas=el.payoutInventory;
+  if(!payoutGeometry){
+    const receiver=el.payoutReceiver.getBoundingClientRect();
+    const basin=el.payoutBasin.getBoundingClientRect();
+    payoutGeometry={width:receiver.width,height:receiver.height,
+      tray:{left:basin.left-receiver.left,right:basin.right-receiver.left,
+        top:basin.top-receiver.top,bottom:basin.bottom-receiver.top}};
+  }
+  const w=payoutGeometry.width,h=payoutGeometry.height,tray=payoutGeometry.tray;
   if(w<12||h<8)return;
-  const tray={left:basin.left-receiver.left,right:basin.right-receiver.left,
-    top:basin.top-receiver.top,bottom:basin.bottom-receiver.top};
   const now=performance.now();
   if(!payoutDisplayState||payoutDisplayState.total!==total){
     payoutDisplayState={count:0,total,world:createPayoutWorld(w,h,total,tray),
@@ -398,10 +408,11 @@ function paintBasinMarbles(count,total,instant=false){
     stepPayoutWorld(world,delta,target);
     payoutClink(consumePayoutImpact(world));
   }
-  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const dpr=Math.min(renderQuality.boardDpr,window.devicePixelRatio||1);
   const pxW=Math.round(w*dpr),pxH=Math.round(h*dpr);
   if(canvas.width!==pxW||canvas.height!==pxH){canvas.width=pxW;canvas.height=pxH;}
-  const ctx=canvas.getContext("2d");
+  const payoutCtx=canvas.getContext("2d");
+  const ctx=payoutCtx;
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
   const r=world.radius;
   for(const ball of world.balls){
@@ -689,7 +700,7 @@ function label(t,x,y,size=12,color="#d6d1e7",align="left",weight="500"){
 function marble(x,y,r,p){
   const look=marbleLook(save.marbleSkin);
   const standard=save.marbleSkin==="steel";
-  ctx.shadowBlur=standard?3:5;
+  ctx.shadowBlur=Math.min(renderQuality.shadow,standard?3:5);
   ctx.shadowColor=standard?p.sky:look.halo;
   const gr=ctx.createRadialGradient(x-2.5,y-3,1,x,y,r+1);
   gr.addColorStop(0,look.light);
@@ -705,14 +716,21 @@ function resizeCanvas(){
   // Canvas logical coordinates remain exactly 420 x 710 for collision math.
   const rect=canvas.getBoundingClientRect();
   if(!rect.width||!rect.height)return;
-  const dpr=Math.min(3,Math.max(1,window.devicePixelRatio||1));
+  const dpr=Math.min(renderQuality.boardDpr,Math.max(1,window.devicePixelRatio||1));
   const width=Math.max(W,Math.round(rect.width*dpr));
   const height=Math.max(H,Math.round(rect.height*dpr));
   if(canvas.width!==width||canvas.height!==height){
     canvas.width=width;canvas.height=height;
+    staticBoardCache=null;
   }
 }
 if("ResizeObserver" in window)new ResizeObserver(resizeCanvas).observe(canvas);
+if("ResizeObserver" in window){
+  const payoutObserver=new ResizeObserver(()=>{payoutGeometry=null;});
+  payoutObserver.observe(el.payoutReceiver);
+  payoutObserver.observe(el.payoutBasin);
+}
+window.addEventListener("orientationchange",()=>{payoutGeometry=null;});
 window.addEventListener("resize",resizeCanvas);
 resizeCanvas();
 
@@ -798,48 +816,82 @@ function drawPlunger(p){
     circle(cx,y-7,1.6,"#fff9da");
   }
 }
-function draw(timestamp){
+/** Offscreen cache for static background, rails, stars and metal pegs.
+ * Built at most once per (theme, quality scale), not every animation frame. */
+function buildStaticBoard(){
+  const scale=Math.min(2,renderQuality.boardDpr);
+  const surface=document.createElement("canvas");
+  surface.width=Math.round(W*scale);surface.height=Math.round(H*scale);
+  const g=surface.getContext("2d",{alpha:false});
+  if(!g)return null;
+  g.setTransform(scale,0,0,scale,0,0);
   const p=palette[save.theme];
-  ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);
-  ctx.clearRect(0,0,W,H);
-  const bg=ctx.createLinearGradient(0,0,0,H);
+  const scCircle=(x,y,r,color)=>{
+    g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fillStyle=color;g.fill();
+  };
+  const scLine=(x1,y1,x2,y2,color,width=1)=>{
+    g.strokeStyle=color;g.lineWidth=width;g.beginPath();
+    g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();
+  };
+  const scRounded=(x,y,w,h,r,fill,stroke)=>{
+    g.beginPath();g.roundRect(x,y,w,h,r);
+    if(fill){g.fillStyle=fill;g.fill();}
+    if(stroke){g.strokeStyle=stroke;g.stroke();}
+  };
+  const scLabel=(txt,x,y,size=12,color="#d6d1e7",align="left",weight="500")=>{
+    g.font=weight+" "+size+"px Space Grotesk, Microsoft YaHei, sans-serif";
+    g.fillStyle=color;g.textAlign=align;g.fillText(String(txt),x,y);
+  };
+  const bg=g.createLinearGradient(0,0,0,H);
   bg.addColorStop(0,"#171732");bg.addColorStop(.55,"#0b142c");bg.addColorStop(1,p.floor);
-  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-  ctx.save();if(screenShake>0)ctx.translate(Math.sin(timestamp*.09)*screenShake,0);
+  g.fillStyle=bg;g.fillRect(0,0,W,H);
   // Crisp glass reflections, dotted backboard and machine serial markings.
   for(let i=0;i<78;i++)
-    circle(24+(i*97.73)%341,83+(i*136.51)%510,i%5===0?1.15:.55,"#ffffff23");
-  const glass=ctx.createLinearGradient(18,120,370,590);
+    scCircle(24+(i*97.73)%341,83+(i*136.51)%510,i%5===0?1.15:.55,"#ffffff23");
+  const glass=g.createLinearGradient(18,120,370,590);
   glass.addColorStop(0,"#c0e9ff0c");glass.addColorStop(.19,"#ffffff00");
   glass.addColorStop(.72,"#ffffff00");glass.addColorStop(1,"#9bd7ff0b");
-  ctx.fillStyle=glass;ctx.fillRect(23,97,347,516);
+  g.fillStyle=glass;g.fillRect(23,97,347,516);
   // Keep the upper playfield clear; no decorative title panel.
-  line(LEFT,106,LEFT,614,"#e2ac8666",4);
-  line(RIGHT,110,RIGHT,615,"#e2ac8666",4);
-  ctx.strokeStyle="#ffbc826a";ctx.lineWidth=3;ctx.beginPath();
-  ctx.moveTo(LEFT,155);ctx.quadraticCurveTo(50,101,110,106);ctx.stroke();
+  scLine(LEFT,106,LEFT,614,"#e2ac8666",4);
+  scLine(RIGHT,110,RIGHT,615,"#e2ac8666",4);
+  g.strokeStyle="#ffbc826a";g.lineWidth=3;g.beginPath();
+  g.moveTo(LEFT,155);g.quadraticCurveTo(50,101,110,106);g.stroke();
   // The visible launch elbow follows the SAME continuous rail geometry as the physics.
-  ctx.strokeStyle="#dbb995";ctx.lineWidth=3.5;ctx.beginPath();
+  g.strokeStyle="#dbb995";g.lineWidth=3.5;g.beginPath();
   let railStarted=false;
   for(let i=0;i<RAIL_POINTS.length;i+=2){
     const p=RAIL_POINTS[i];
     if(p.y>185)continue;
-    if(!railStarted){ctx.moveTo(p.x,p.y);railStarted=true;}
-    else ctx.lineTo(p.x,p.y);
+    if(!railStarted){g.moveTo(p.x,p.y);railStarted=true;}
+    else g.lineTo(p.x,p.y);
   }
-  ctx.stroke();
-  line(377,119,377,676,"#c7a1a0a0",3);line(407,112,407,677,"#c7a1a099",3);
-  rounded(380,135,24,479,11,"#0e1428ad");
+  g.stroke();
+  scLine(377,119,377,676,"#c7a1a0a0",3);scLine(407,112,407,677,"#c7a1a099",3);
+  scRounded(380,135,24,479,11,"#0e1428ad");
   for(const pair of [["L",305],["A",326],["N",347],["E",368]])
-    label(pair[0],389,pair[1],12,"#ddaa88","center","700");
+    scLabel(pair[0],389,pair[1],12,"#ddaa88","center","700");
   for(const peg of pegs){
-    circle(peg.x+1.3,peg.y+1.5,peg.r+2,"#030819b0");
-    const gr=ctx.createRadialGradient(peg.x-2,peg.y-2,1,peg.x,peg.y,peg.r+1);
+    scCircle(peg.x+1.3,peg.y+1.5,peg.r+2,"#030819b0");
+    const gr=g.createRadialGradient(peg.x-2,peg.y-2,1,peg.x,peg.y,peg.r+1);
     gr.addColorStop(0,"#fff6e0");gr.addColorStop(.35,"#c4b8b9");gr.addColorStop(1,"#5a607e");
-    circle(peg.x,peg.y,peg.r,gr);circle(peg.x-1.3,peg.y-1.8,1.4,"#ffffffb0");
+    scCircle(peg.x,peg.y,peg.r,gr);scCircle(peg.x-1.3,peg.y-1.8,1.4,"#ffffffb0");
   }
+
+  staticBoardCache={surface,theme:save.theme,scale};
+  return staticBoardCache;
+}
+function draw(timestamp){
+  const p=palette[save.theme];
+  ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);
+  ctx.clearRect(0,0,W,H);
+  const cache=(!staticBoardCache||staticBoardCache.theme!==save.theme||
+    staticBoardCache.scale!==Math.min(2,renderQuality.boardDpr))
+      ?buildStaticBoard():staticBoardCache;
+  if(cache)ctx.drawImage(cache.surface,0,0,W,H);
+  ctx.save();if(screenShake>0)ctx.translate(Math.sin(timestamp*.09)*screenShake,0);
   for(const b of bumpers){
-    ctx.shadowBlur=5;ctx.shadowColor=p.red;circle(b.x,b.y,b.r+4,"#fe52634a");
+    ctx.shadowBlur=Math.min(renderQuality.shadow,5);ctx.shadowColor=p.red;circle(b.x,b.y,b.r+4,"#fe52634a");
     ctx.shadowBlur=0;circle(b.x,b.y,b.r,p.red);circle(b.x,b.y,b.r-4,"#3d243f");
     label("★",b.x,b.y+4,13,p.gold,"center","700");
   }
@@ -848,7 +900,7 @@ function draw(timestamp){
     const t=Math.max(0,flash.life/flash.total);
     ctx.save();ctx.globalCompositeOperation="screen";ctx.globalAlpha=Math.min(.85,t*(.35+flash.force*.5));
     const color=flash.bumper?p.gold:p.sky;
-    ctx.shadowColor=color;ctx.shadowBlur=flash.bumper?19:10;
+    ctx.shadowColor=color;ctx.shadowBlur=Math.min(renderQuality.shadow,flash.bumper?19:10);
     ctx.strokeStyle=color;ctx.lineWidth=flash.bumper?2.8:1.5;
     ctx.beginPath();ctx.arc(flash.x,flash.y,(flash.bumper?17:8)+(1-t)*15,0,Math.PI*2);ctx.stroke();
     circle(flash.x,flash.y,(flash.bumper?15:5)*t,color);
@@ -866,11 +918,11 @@ function draw(timestamp){
     const strength=slotPulse?.slot===i?slotPulseStrength(slotPulse.life,slotPulse.total):0;
     if(strength>0){
       ctx.save();ctx.globalAlpha=.23+.6*strength;ctx.shadowColor=p.red;
-      ctx.shadowBlur=12+24*strength;rounded(x+1,SLOT_TOP+6,SLOT_W-2,80,3,p.red);
+      ctx.shadowBlur=Math.min(renderQuality.shadow,12+24*strength);rounded(x+1,SLOT_TOP+6,SLOT_W-2,80,3,p.red);
       ctx.restore();
     }
     if(lit){
-      ctx.shadowColor=p.red;ctx.shadowBlur=9+20*strength;
+      ctx.shadowColor=p.red;ctx.shadowBlur=Math.min(renderQuality.shadow,9+20*strength);
       rounded(x+3,SLOT_TOP+11,SLOT_W-6,4,2,"#ffab9c");
       ctx.shadowBlur=0;
       circle(center,SLOT_TOP+72,7,p.red);
@@ -905,7 +957,7 @@ function draw(timestamp){
       const style=trailLook(save.trailEffect);
       ctx.lineCap="round";ctx.lineJoin="round";
       ctx.strokeStyle=save.trailEffect==="standard"?p.sky:style.color;
-      ctx.shadowColor=style.secondary;ctx.shadowBlur=style.glow;
+      ctx.shadowColor=style.secondary;ctx.shadowBlur=Math.min(renderQuality.shadow,style.glow);
       for(let i=1;i<trail.length;i++){
         const q=trail[i],prev=trail[i-1];
         ctx.globalAlpha=trailOpacity(i,trail.length,q.speed);
@@ -936,7 +988,7 @@ function frame(now){
     const active=Boolean(payoutFx)||now<display.settleUntil;
     if(active){
       // A 30 fps cap protects narrow phones with hundreds of moving marbles.
-      if(display.world.visible<=250||now-display.lastDraw>=33){
+      if(now-display.lastDraw>=renderQuality.payoutInterval){
         display.lastDraw=now;
         paintBasinMarbles(payoutFx?.shownMarbles??display.count,display.total);
       }
@@ -945,7 +997,26 @@ function frame(now){
   accumulator+=delta;let steps=0;
   while(accumulator>=STEP&&steps<14){advance(STEP);accumulator-=STEP;steps++;}
   if(steps===14)accumulator=0;
-  draw(now);requestAnimationFrame(frame);
+  // Browser FPS degradation only affects rendering, never the simulation step.
+  // Assess actual RAF delays, not our intentional paint skipping.
+  frameSamples++;
+  if(delta>.027)slowFrameCount++;
+  if(frameSamples>=60){
+    const slow=slowFrameCount>=10;
+    if(slow)lowQualityUntil=now+4500;
+    else if(now>lowQualityUntil)lowQualityUntil=0;
+    const next=renderBudget(compactScreen,now<lowQualityUntil);
+    if(next.boardDpr!==renderQuality.boardDpr){
+      renderQuality=next;resizeCanvas();staticBoardCache=null;
+    }else renderQuality=next;
+    frameSamples=0;slowFrameCount=0;
+  }
+  const interval=phase==="shooting"?renderQuality.drawInterval:
+    Math.max(33,renderQuality.drawInterval);
+  if(shouldDrawFrame(now,lastBoardDraw,interval,charging)){
+    lastBoardDraw=now;draw(now);
+  }
+  requestAnimationFrame(frame);
 }
 document.querySelectorAll("[data-add]").forEach(btn=>btn.addEventListener("click",event=>{
   if(phase!=="ready"||charging||revealState==="rolling")return;
