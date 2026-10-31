@@ -114,9 +114,33 @@ const {chromium}=require("playwright");
       assert.match(visual.cabinetBackground,/linear-gradient/,"Cabinet chrome is applied");
       assert.match(visual.powerRail,/linear-gradient/,"Plunger force strip is styled");
       assert.equal(visual.lamps.length,5);
+      const overlap=await page.evaluate(()=>{
+        const measurements=[...document.querySelectorAll(".mult-lamp")].map((lamp,index)=>{
+          const big=lamp.querySelector("b").getBoundingClientRect();
+          const small=lamp.querySelector("small").getBoundingClientRect();
+          const root=lamp.getBoundingClientRect();
+          return {index,root:root.toJSON(),big:big.toJSON(),small:small.toJSON()};
+        });
+        return {measurements,cacheLink:Boolean(document.querySelector('link[href*="performance-v0111.css"]'))};
+      });
+      assert.ok(overlap.cacheLink,"v0.11.1 lamp/performance stylesheet must load");
+      for(const m of overlap.measurements){
+        assert.ok(m.big.bottom<=m.small.top+.3,
+          "Multiplier overlaps slot-count label: "+JSON.stringify({profile:profile.name,...m}));
+        assert.ok(m.big.top>=m.root.top-1&&m.small.bottom<=m.root.bottom+1,
+          "Lamp labels must remain inside the socket: "+JSON.stringify({profile:profile.name,...m}));
+      }
+
       assert.equal(visual.state,"idle");
       assert.ok(visual.board.top>=visual.frame.bottom-3);
       assert.ok(visual.payout.top>=visual.board.bottom-1);
+      // No new costly layout changes from the optimization layer.
+      const pxScale=await page.evaluate(()=>{
+        const board=document.querySelector("#board"),rect=board.getBoundingClientRect();
+        return {x:board.width/rect.width,y:board.height/rect.height};
+      });
+      assert.ok(pxScale.x<=Math.max(2,profile.deviceScaleFactor)+.3);
+
       assert.ok(visual.handleHitbox.width>=30&&visual.handleHitbox.height>=20,
         "Mechanical lever keeps its original responsive touch area");
       for(let n=0;n<visual.lamps.length;n++){
@@ -245,7 +269,7 @@ const {chromium}=require("playwright");
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
           const {PAYOUT_RADIUS,createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
-            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.11.0");
+            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.11.1");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
           const receiver=document.getElementById("payoutReceiver").getBoundingClientRect();
           const bounds={left:tray.left-receiver.left,right:tray.right-receiver.left,
@@ -273,7 +297,7 @@ const {chromium}=require("playwright");
           "Marble-marble physics must produce actual contact impulses");
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.11.0");
+            "/games/pinball/payout-tray.mjs?v=0.11.1");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;
