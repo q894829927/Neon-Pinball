@@ -48,6 +48,7 @@ test("browser entry point initializes and paints its first canvas frame",async()
     setTransform(){},
     clearRect(){this.clears++;},
     fillRect(){this.paints++;},
+    drawImage(){this.paints++;}, // main canvas blits pre-rendered static board
     beginPath(){},roundRect(){},fill(){},stroke(){},
     save(){},restore(){},moveTo(){},lineTo(){},
     arc(){},fillText(){},translate(){},quadraticCurveTo(){},
