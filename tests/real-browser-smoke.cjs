@@ -91,7 +91,7 @@ const {chromium}=require("playwright");
         assert.equal(await page.locator("#layoutActiveLabel").textContent(),"当前：波浪钉阵");
         const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem("neon-pinball-arcade-v1")));
         assert.equal(stored.boardLayout,"wave","Peg choice must survive reload");
-        await page.locator("#layoutDialog [data-close='layoutDialog']").click();
+        await page.locator("#layoutDialog .modal-close").click();
         assert.match(await page.locator("#layoutBtn").getAttribute("aria-label"),/波浪钉阵/);
       }
 
