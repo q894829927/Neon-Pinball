@@ -1,0 +1,26 @@
+name: Experimental balanced peg search
+on:
+  push:
+    branches: ["experiment/balanced-peg-search"]
+    paths:
+      - "scripts/search-balanced-layout.mjs"
+      - ".github/workflows/balanced-peg-search.yml"
+permissions:
+  contents: read
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Geometry-only real physics search
+        run: node scripts/search-balanced-layout.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: balanced-peg-search-results
+          path: balanced-layout-search-output/
+          retention-days: 30
