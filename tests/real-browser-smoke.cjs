@@ -85,14 +85,14 @@ const {chromium}=require("playwright");
       if(profile.name==="desktop"||profile.name==="phone"){
         await page.locator("#layoutBtn").click();
         await page.locator("#layoutDialog").waitFor({state:"visible"});
-        assert.equal(await page.locator("[data-board-layout]").count(),4);
-        await page.locator('[data-board-layout="wave"]').click();
-        assert.equal(await page.locator('[data-board-layout="wave"]').getAttribute("aria-pressed"),"true");
-        assert.equal(await page.locator("#layoutActiveLabel").textContent(),"当前：波浪钉阵");
+        assert.equal(await page.locator("[data-board-layout]").count(),5);
+        await page.locator('[data-board-layout="balanced"]').click();
+        assert.equal(await page.locator('[data-board-layout="balanced"]').getAttribute("aria-pressed"),"true");
+        assert.equal(await page.locator("#layoutActiveLabel").textContent(),"当前：均衡导流");
         const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem("neon-pinball-arcade-v1")));
-        assert.equal(stored.boardLayout,"wave","Peg choice must survive reload");
+        assert.equal(stored.boardLayout,"balanced","Peg choice must survive reload");
         await page.locator("#layoutDialog .modal-close").click();
-        assert.match(await page.locator("#layoutBtn").getAttribute("aria-label"),/波浪钉阵/);
+        assert.match(await page.locator("#layoutBtn").getAttribute("aria-label"),/均衡导流/);
       }
 
       // v0.10.8 design checks across all existing device profiles.
@@ -286,7 +286,7 @@ const {chromium}=require("playwright");
       if(profile.name==="desktop"||profile.name==="phone"){
         const payoutLayout=await page.evaluate(async()=>{
           const {PAYOUT_RADIUS,createPayoutWorld,stepPayoutWorld,finishPayoutWorld,
-            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.11.2");
+            withinPayoutBasin,payoutOverflow}=await import("/games/pinball/payout-physics.mjs?v=0.11.3");
           const tray=document.getElementById("payoutBasin").getBoundingClientRect();
           const receiver=document.getElementById("payoutReceiver").getBoundingClientRect();
           const bounds={left:tray.left-receiver.left,right:tray.right-receiver.left,
@@ -314,7 +314,7 @@ const {chromium}=require("playwright");
           "Marble-marble physics must produce actual contact impulses");
         const trayPhysics=await page.evaluate(async()=>{
           const {makeTrayBall,stepTrayBalls,isBallInTray}=await import(
-            "/games/pinball/payout-tray.mjs?v=0.11.2");
+            "/games/pinball/payout-tray.mjs?v=0.11.3");
           const container=document.getElementById("payoutBasin");
           const track=document.getElementById("payoutCoins");
           const width=track.clientWidth,height=track.clientHeight;

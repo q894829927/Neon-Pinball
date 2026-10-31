@@ -20,19 +20,21 @@ test("legacy original arrangement remains exactly unchanged",()=>{
   assert.equal(original.bumpers.length,3);
   assert.deepEqual(pegPosition(3,2),{x:144.5,y:310});
 });
-test("all four selectable patterns have separate actual geometry without overlapping bumpers",()=>{
-  assert.deepEqual(BOARD_LAYOUT_IDS,["classic","mirror","dense","wave"]);
-  assert.equal(new Set(BOARD_LAYOUTS.map(l=>l.id)).size,4);
+test("five selectable patterns share real geometry without overlapping bumpers",()=>{
+  assert.deepEqual(BOARD_LAYOUT_IDS,["classic","mirror","dense","wave","balanced"]);
+  assert.equal(new Set(BOARD_LAYOUTS.map(l=>l.id)).size,5);
   const layouts=BOARD_LAYOUT_IDS.map(id=>createPegLayout(368,id));
   for(let i=0;i<layouts.length;i++){
     const l=layouts[i],config=getBoardLayout(l.id);
-    assert.equal(l.pegs.length+l.bumpers.length,config.rows*config.columns);
+    assert.equal(l.pegs.filter(p=>p.row>=0).length+l.bumpers.length,config.rows*config.columns);
+    assert.equal(l.pegs.filter(p=>p.guide).length,(config.guidePegs??[]).length);
     assert.equal(l.bumpers.length,3);
     const cells=new Set();
     for(const peg of [...l.pegs,...l.bumpers]){
-      assert.ok(peg.x>38&&peg.x<356&&peg.y>170&&peg.y<575);
-      assert.equal(JSON.stringify({x:peg.x,y:peg.y}),
+      assert.ok(peg.x>38&&peg.x<356&&peg.y>142&&peg.y<610);
+      if(peg.row>=0)assert.equal(JSON.stringify({x:peg.x,y:peg.y}),
                    JSON.stringify(pegPosition(peg.row,peg.col,l.id)));
+      else assert.equal(peg.guide,true);
       const key=peg.row+"/"+peg.col;
       assert.ok(!cells.has(key));cells.add(key);
     }
@@ -61,5 +63,17 @@ test("the actual physical engine settles on every new pattern over variable forc
         assert.ok(ball.slot>=0&&ball.slot<11);
       }
     }
+  }
+});
+
+test("balanced layout uses real collision guides without overlapping pegs",()=>{
+  const l=createPegLayout(PHYSICS.fieldRight,"balanced");
+  const guides=l.pegs.filter(p=>p.guide);
+  assert.ok(guides.length>=1);
+  assert.ok(guides.every(p=>p.r>=5&&p.r<=12));
+  for(const g of guides)for(const p of [...l.pegs,...l.bumpers]){
+    if(p===g)continue;
+    assert.ok(Math.hypot(p.x-g.x,p.y-g.y)>p.r+g.r,
+      "Physical guide cannot intersect another obstacle");
   }
 });

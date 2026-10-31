@@ -22,6 +22,11 @@ export const BOARD_LAYOUTS=Object.freeze([
   Object.freeze({id:"dense",name:"密集钉阵",description:"12行×8列，缩小行距、增加碰撞机会",
     rows:12,columns:8,left:48,top:184,dx:39,dy:33,offsets:[0,18.5],
     pegRadius:5.6,bumpers:[{row:3,col:2},{row:6,col:5},{row:9,col:3}]}),
+  // Additional steel guide pins are physical circles, not forced slot bias.
+  Object.freeze({id:"balanced",name:"均衡导流",description:"两颗物理导流钉，降低单槽最高落入概率",
+    rows:10,columns:8,left:48,top:184,dx:39,dy:42,offsets:[0,18.5],
+    pegRadius:5.9,bumpers:BUMPER_CELLS,
+    guidePegs:[{x:340,y:161.4,r:9.3},{x:343.7,y:594.4,r:8.2}]}),
   Object.freeze({id:"wave",name:"波浪钉阵",description:"10行×8列，横向错列按波形变化",
     rows:10,columns:8,left:53,top:184,dx:38,dy:42,
     offsets:[0,16,23,7,-8,15,23,7,-8,15],
@@ -53,6 +58,13 @@ export function createPegLayout(rightWall=368,id="classic"){
     const cell={row,col,x,y};
     if(selected.has(row+","+col))bumpers.push({...cell,r:15});
     else pegs.push({...cell,r:grid.pegRadius});
+  }
+  for(const [i,p] of (grid.guidePegs??[]).entries()){
+    if(p.x<42||p.x>348||p.y<143||p.y>608||p.r<4||p.r>13)
+      throw new Error("Guide peg outside board: "+id+"/"+i);
+    if([...pegs,...bumpers].some(q=>Math.hypot(p.x-q.x,p.y-q.y)<=p.r+q.r+1))
+      throw new Error("Guide peg overlaps board obstacle: "+id+"/"+i);
+    pegs.push({row:-1,col:i,x:p.x,y:p.y,r:p.r,guide:true});
   }
   if(bumpers.length!==grid.bumpers.length)
     throw new Error("A bumper is outside the peg field");
