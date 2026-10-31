@@ -1,0 +1,37 @@
+/* v0.11.2 — compact board-pattern selector; does not resize the pinboard. */
+#layoutBtn{flex-shrink:0;font-size:18px;font-weight:700}
+#layoutBtn:disabled{opacity:.55}
+.board-layout-dialog{width:min(93vw,520px);max-height:min(85dvh,690px);overflow-y:auto}
+.board-layout-dialog h2{font-size:clamp(18px,3.2vw,24px);margin:8px 0}
+.layout-description{font-size:12px;color:#bac8d7;line-height:1.55}
+.board-layout-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+.board-layout-options button{
+  display:flex;flex-direction:column;align-items:flex-start;gap:5px;
+  min-width:0;min-height:96px;text-align:left;cursor:pointer;
+  border:1px solid #748397;border-radius:9px;padding:10px;
+  color:#e6eef6;background:linear-gradient(145deg,#39465d,#202b40);
+  box-shadow:inset 0 1px #f1f6ff19,0 2px 5px #070a19a3;
+}
+.board-layout-options button strong{font-size:14px;color:#ffe0ae}
+.board-layout-options button span{font-size:11px;color:#c5d6e7}
+.board-layout-options button small{font-size:10px;color:#bac5d0;line-height:1.3}
+.board-layout-options button.is-active{
+  border-color:#f3d7a3;
+  background:linear-gradient(145deg,#605344,#303647);
+  box-shadow:inset 0 1px #f8e2a471,0 0 8px #d8a97269;
+}
+.board-layout-options button:disabled{opacity:.48;cursor:not-allowed}
+.board-layout-options button:focus-visible,#layoutBtn:focus-visible{outline:2px solid #ffda9b;outline-offset:2px}
+.layout-active-label{font-size:12px;color:#f4d8a5;font-weight:700}
+@media(max-width:370px){
+  #layoutBtn{font-size:15px}
+  .board-layout-dialog{padding:12px}
+  .board-layout-options{gap:5px}
+  .board-layout-options button{padding:8px;min-height:84px}
+  .board-layout-options button strong{font-size:12px}
+  .board-layout-options button small{font-size:9px}
+}
+@media(max-height:500px) and (orientation:landscape){
+  .board-layout-dialog{max-height:90dvh}
+  .board-layout-options button{min-height:70px;padding:7px}
+}
